@@ -9,8 +9,6 @@ import {
   DEFAULT_WALLET_CONFIG,
   buildAuthMessage,
   buildAuthorizationBlob,
-  configsEqual,
-  fetchLiveConfig,
 } from "./authEnvelope";
 import { registryGet, registryRegister } from "./registry";
 import { relayExecuteSigned, relayStateInit } from "./relayer";
@@ -449,26 +447,29 @@ const wallet = {
 
   async resolveAuth(params: ResolveAuthParams): Promise<ResolveAuthResponse> {
     assertMainnet(params.network);
-    const client = getClient();
-    const signedIn = await storage.getActiveCredential();
 
+    // The Code binding commits to the account's INITIAL state (the contract
+    // reconstructs the NEP-616 StateInit from the envelope + its stored
+    // public key and checks the derived account id), so the envelope is
+    // always built from the defaults this executor creates wallets with —
+    // it stays valid even after on-chain config mutations. One ceremony,
+    // always.
+    const message = buildAuthMessage({ ...params, config: DEFAULT_WALLET_CONFIG });
+    const challenge = authMessageHash(message);
+
+    const signedIn = await storage.getActiveCredential();
     if (signedIn) {
-      // Known account: single ceremony over the LIVE config.
       await ensureAccountOnChain(signedIn);
-      const config = await fetchLiveConfig(client, signedIn.accountId);
-      const message = buildAuthMessage({ ...params, config });
-      const assertion = await webauthnGet(authMessageHash(message), signedIn.rawId);
+      const assertion = await webauthnGet(challenge, signedIn.rawId);
       return {
         accountId: signedIn.accountId,
         authorization: buildAuthorizationBlob(message, buildProof(signedIn.curve, assertion)),
       };
     }
 
-    // Unknown account: sign over assumed defaults, discover the credential
-    // from the assertion, then fall back to a second ceremony only when the
-    // live config diverged from the defaults.
-    const assumedMessage = buildAuthMessage({ ...params, config: DEFAULT_WALLET_CONFIG });
-    const assertion = await webauthnGet(authMessageHash(assumedMessage));
+    // Unknown account: discover the credential from the assertion itself
+    // (local cache first, registry on miss, verified against the signature).
+    const assertion = await webauthnGet(challenge);
     const resolved = await resolveCredential(assertion);
 
     const active = toActiveCredential(resolved);
@@ -482,24 +483,11 @@ const wallet = {
       throw e;
     }
 
-    const liveConfig = await fetchLiveConfig(client, resolved.accountId);
-    if (configsEqual(liveConfig, DEFAULT_WALLET_CONFIG)) {
-      return {
-        accountId: resolved.accountId,
-        authorization: buildAuthorizationBlob(
-          assumedMessage,
-          buildProof(resolved.publicKey.curve, assertion),
-        ),
-      };
-    }
-
-    const liveMessage: AuthMessageJson = buildAuthMessage({ ...params, config: liveConfig });
-    const secondAssertion = await webauthnGet(authMessageHash(liveMessage), resolved.rawIdB64);
     return {
       accountId: resolved.accountId,
       authorization: buildAuthorizationBlob(
-        liveMessage,
-        buildProof(resolved.publicKey.curve, secondAssertion),
+        message,
+        buildProof(resolved.publicKey.curve, assertion),
       ),
     };
   },

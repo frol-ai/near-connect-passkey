@@ -88,7 +88,7 @@ domain, which the sandboxed executor deliberately does not do.
 | `borsh.ts` | minimal borsh writer |
 | `walletContract.ts` | AuthMessage/RequestMessage JSON wire types, borsh encoders, SHA3-256 domain hashes, RFC-3339 codec, ConnectorAction conversion |
 | `stateInit.ts` | wallet `State` defaults, `StateInit` borsh, NEP-616 account id derivation |
-| `authEnvelope.ts` | NEP-641 message building (defaults + live config), authorization blob |
+| `authEnvelope.ts` | NEP-641 message building (initial-state Code binding), authorization blob |
 | `protocol.ts` | raw NEAR protocol tx encoder (StateInit support) + JSON-RPC broadcast |
 | `webauthn.ts` | CBOR/COSE/SPKI key extraction, DER→raw low-S, local assertion verify, proof blob |
 | `registry.ts` | `passkeys-registry.near` get/register (retry + backoff) |
