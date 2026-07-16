@@ -1,0 +1,43 @@
+[package]
+name = "passkeys-registry"
+description = "Open on-chain registry mapping WebAuthn credential ids (rawId) to their public keys"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.86"
+repository = "https://github.com/near/near-connect-passkey"
+license = "MIT OR Apache-2.0"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+base64 = { version = "0.22", default-features = false, features = ["alloc"] }
+bs58 = "0.5"
+near-sdk = "5.29.0"
+
+[dev-dependencies]
+near-api = "0.8.6"
+near-sandbox = "0.3.11"
+near-sdk = { version = "5.29.0", features = ["unit-testing"] }
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+
+[profile.release]
+codegen-units = 1
+opt-level = "z"
+lto = true
+debug = false
+panic = "abort"
+overflow-checks = true
+
+[package.metadata.near.reproducible_build]
+image = "sourcescan/cargo-near:0.16.1-rust-1.86.0"
+image_digest = "sha256:8d0c7a674a2b3ffd88a5e5150a5361e6b40c1ee4a54b06215fbb7cbd126ba0e0"
+passed_env = []
+container_build_command = [
+  "cargo",
+  "near",
+  "build",
+  "non-reproducible-wasm",
+  "--locked",
+]

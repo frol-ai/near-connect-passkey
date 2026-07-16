@@ -1,0 +1,508 @@
+import type { Client } from "near-api-ts";
+import { createClient, isNatError } from "near-api-ts";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { base64 } from "@scure/base";
+
+import { BorshWriter } from "./borsh";
+import { CHAIN_ID } from "./constants";
+import {
+  DEFAULT_WALLET_CONFIG,
+  buildAuthMessage,
+  buildAuthorizationBlob,
+  configsEqual,
+  fetchLiveConfig,
+} from "./authEnvelope";
+import { registryGet, registryRegister } from "./registry";
+import { relayExecuteSigned, relayStateInit } from "./relayer";
+import type { PasskeyPublicKey } from "./stateInit";
+import {
+  deriveAccountId,
+  publicKeyFromString,
+  publicKeyToString,
+  serializeDefaultStateInit,
+} from "./stateInit";
+import * as storage from "./storage";
+import type {
+  Account,
+  AccountWithSignedMessage,
+  ActiveCredential,
+  ConnectorAction,
+  FinalExecutionOutcome,
+  ResolveAuthParams,
+  ResolveAuthResponse,
+  SignAndSendTransactionParams,
+  SignAndSendTransactionsParams,
+  SignDelegateActionsParams,
+  SignDelegateActionsResponse,
+  SignInAndSignMessageParams,
+  SignInParams,
+  SignMessageParams,
+  SignedMessage,
+  WebauthnGetResult,
+} from "./types";
+import { selector } from "./types";
+import * as ui from "./ui";
+import type { RequestJson, RequestMessageJson } from "./walletContract";
+import {
+  buildRequestMessage,
+  connectorActionsToPromises,
+  requestMessageHash,
+} from "./walletContract";
+import {
+  b64ToRawId,
+  buildProof,
+  extractCredentialPublicKey,
+  rawIdToB64,
+  verifyAssertion,
+} from "./webauthn";
+import type { AuthMessageJson } from "./walletContract";
+import { authMessageHash } from "./walletContract";
+
+// ─── Environment ─────────────────────────────────────────────────────────────
+
+let cachedClient: Client | null = null;
+
+function rpcUrl(): string {
+  const url = selector().providers.mainnet[0];
+  if (!url) throw new Error("no mainnet RPC provider configured");
+  return url;
+}
+
+function getClient(): Client {
+  if (!cachedClient) {
+    cachedClient = createClient({
+      transport: {
+        rpcEndpoints: { regular: selector().providers.mainnet.map((url) => ({ url })) },
+      },
+    });
+  }
+  return cachedClient;
+}
+
+function assertMainnet(network?: string): void {
+  if (network && network !== CHAIN_ID) {
+    throw new Error("Passkey wallet supports mainnet only");
+  }
+}
+
+async function accountExists(client: Client, accountId: string): Promise<boolean> {
+  const info = await client.safeGetAccountInfo({ accountId });
+  if (info.ok) return true;
+  if (isNatError(info.error, "Client.GetAccountInfo.Rpc.Account.NotFound")) return false;
+  throw info.error;
+}
+
+// ─── WebAuthn ceremonies ─────────────────────────────────────────────────────
+
+function randomBytes(length: number): number[] {
+  return Array.from(crypto.getRandomValues(new Uint8Array(length)));
+}
+
+async function webauthnCreate(name: string) {
+  return selector().webauthn.create({
+    challenge: randomBytes(32),
+    rp: { name },
+    user: { id: randomBytes(16), name, displayName: name },
+    pubKeyCredParams: [
+      { alg: -8, type: "public-key" }, // EdDSA (Ed25519)
+      { alg: -7, type: "public-key" }, // ES256 (P-256)
+    ],
+    authenticatorSelection: { residentKey: "required", userVerification: "preferred" },
+    attestation: "none",
+  });
+}
+
+async function webauthnGet(
+  challenge: Uint8Array,
+  rawIdB64?: string,
+): Promise<WebauthnGetResult> {
+  const options: Record<string, unknown> = {
+    challenge: Array.from(challenge),
+    userVerification: "preferred",
+  };
+  if (rawIdB64) {
+    options["allowCredentials"] = [
+      { id: b64ToRawId(rawIdB64), type: "public-key" },
+    ];
+  }
+  return selector().webauthn.get(options);
+}
+
+// ─── Credential resolution ───────────────────────────────────────────────────
+
+interface ResolvedCredential {
+  rawIdB64: string;
+  publicKey: PasskeyPublicKey;
+  accountId: string;
+}
+
+/**
+ * Map an assertion's rawId to its verified public key: local cache first,
+ * registry on miss; every candidate is verified against the assertion
+ * signature — only the credential's true key is accepted.
+ */
+async function resolveCredential(assertion: WebauthnGetResult): Promise<ResolvedCredential> {
+  const rawIdB64 = rawIdToB64(assertion.rawId);
+
+  const known = await storage.getKnownCredentials();
+  const cached = known[rawIdB64];
+  const candidates: string[] = cached ? [cached.publicKey] : [];
+
+  if (candidates.length === 0) {
+    candidates.push(...(await registryGet(getClient(), rawIdB64)));
+  }
+
+  for (const candidate of candidates) {
+    let publicKey: PasskeyPublicKey;
+    try {
+      publicKey = publicKeyFromString(candidate);
+    } catch {
+      continue;
+    }
+    if (verifyAssertion(publicKey, assertion)) {
+      const accountId = deriveAccountId(publicKey);
+      await storage.addKnownCredential(rawIdB64, {
+        publicKey: candidate,
+        curve: publicKey.curve,
+        accountId,
+      });
+      return { rawIdB64, publicKey, accountId };
+    }
+  }
+
+  throw new Error(
+    "This passkey is not registered in the passkeys registry (or the registered keys " +
+      "do not match its signature). Create it again on the original device or register it first.",
+  );
+}
+
+function toActiveCredential(resolved: ResolvedCredential): ActiveCredential {
+  return {
+    rawId: resolved.rawIdB64,
+    publicKey: publicKeyToString(resolved.publicKey),
+    curve: resolved.publicKey.curve,
+    accountId: resolved.accountId,
+    registeredAt: Date.now(),
+  };
+}
+
+function toAccount(active: ActiveCredential): Account {
+  return { accountId: active.accountId, publicKey: active.publicKey };
+}
+
+// ─── Registration ────────────────────────────────────────────────────────────
+
+/** Register with the on-chain registry; on hard failure offer Retry/Cancel. */
+async function registerWithUi(rawIdB64: string, publicKey: string): Promise<void> {
+  for (;;) {
+    try {
+      await registryRegister(getClient(), rawIdB64, publicKey);
+      return;
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      const retry = await ui.promptRetryRegistration(message);
+      if (!retry) {
+        throw new Error(`Passkey registration cancelled: ${message}`);
+      }
+    }
+  }
+}
+
+/** A pending registration must reach the registry before any new create(). */
+async function retryPendingRegistration(): Promise<void> {
+  const pending = await storage.getPendingRegistration();
+  if (!pending) return;
+  await registerWithUi(pending.rawIdB64, pending.publicKey);
+  await storage.clearPendingRegistration();
+  const publicKey = publicKeyFromString(pending.publicKey);
+  await storage.addKnownCredential(pending.rawIdB64, {
+    publicKey: pending.publicKey,
+    curve: pending.curve,
+    accountId: deriveAccountId(publicKey),
+  });
+}
+
+async function createNewPasskey(): Promise<ActiveCredential> {
+  const name = await ui.promptPasskeyName();
+  const created = await webauthnCreate(name);
+  const publicKey = extractCredentialPublicKey(created);
+  const publicKeyStr = publicKeyToString(publicKey);
+  const rawIdB64 = rawIdToB64(created.rawId);
+  const accountId = deriveAccountId(publicKey);
+
+  // Persist BEFORE registering so an interrupted registration is retried
+  // on the next signIn instead of losing the key mapping forever.
+  await storage.setPendingRegistration({
+    rawIdB64,
+    publicKey: publicKeyStr,
+    curve: publicKey.curve,
+  });
+  await registerWithUi(rawIdB64, publicKeyStr);
+  await storage.clearPendingRegistration();
+
+  await storage.addKnownCredential(rawIdB64, {
+    publicKey: publicKeyStr,
+    curve: publicKey.curve,
+    accountId,
+  });
+  const active: ActiveCredential = {
+    rawId: rawIdB64,
+    publicKey: publicKeyStr,
+    curve: publicKey.curve,
+    accountId,
+    registeredAt: Date.now(),
+  };
+  await storage.setActiveCredential(active);
+  return active;
+}
+
+async function useExistingPasskey(): Promise<ActiveCredential> {
+  const assertion = await webauthnGet(new Uint8Array(randomBytes(32)));
+  let resolved: ResolvedCredential;
+  try {
+    resolved = await resolveCredential(assertion);
+  } catch (e) {
+    await ui.showErrorDialog(
+      "Passkey not registered",
+      e instanceof Error ? e.message : String(e),
+    );
+    throw e;
+  }
+  const active = toActiveCredential(resolved);
+  await storage.setActiveCredential(active);
+  return active;
+}
+
+// ─── Signing primitives ──────────────────────────────────────────────────────
+
+async function requireActive(): Promise<ActiveCredential> {
+  const active = await storage.getActiveCredential();
+  if (!active) throw new Error("Wallet not signed in");
+  return active;
+}
+
+async function signRequestMessage(
+  active: ActiveCredential,
+  request: RequestJson,
+): Promise<{ msg: RequestMessageJson; proof: string }> {
+  const msg = buildRequestMessage(active.accountId, await storage.nextNonce(), request);
+  const assertion = await webauthnGet(requestMessageHash(msg), active.rawId);
+  return { msg, proof: buildProof(active.curve, assertion) };
+}
+
+async function executeRequest(
+  active: ActiveCredential,
+  request: RequestJson,
+): Promise<FinalExecutionOutcome> {
+  const client = getClient();
+  const { msg, proof } = await signRequestMessage(active, request);
+  const exists = await accountExists(client, active.accountId);
+  const stateInit = exists
+    ? null
+    : serializeDefaultStateInit(publicKeyFromString(active.publicKey));
+  return relayExecuteSigned(client, rpcUrl(), active.accountId, msg, proof, stateInit);
+}
+
+/** Ensure the deterministic account exists on-chain (StateInit-only relay). */
+async function ensureAccountOnChain(active: ActiveCredential): Promise<void> {
+  const client = getClient();
+  if (await accountExists(client, active.accountId)) return;
+  await relayStateInit(
+    client,
+    rpcUrl(),
+    active.accountId,
+    serializeDefaultStateInit(publicKeyFromString(active.publicKey)),
+  );
+}
+
+// ─── NEP-413 ────────────────────────────────────────────────────────────────
+
+const NEP413_TAG = 2 ** 31 + 413;
+
+function nep413PayloadHash(message: string, recipient: string, nonce: Uint8Array): Uint8Array {
+  if (nonce.length !== 32) throw new Error("NEP-413 nonce must be 32 bytes");
+  const w = new BorshWriter();
+  w.writeU32(NEP413_TAG);
+  w.writeString(message);
+  w.writeFixedBytes(nonce);
+  w.writeString(recipient);
+  w.writeU8(0); // callbackUrl: None
+  return sha256(w.toBytes());
+}
+
+// ─── Wallet ─────────────────────────────────────────────────────────────────
+
+const wallet = {
+  // Overwritten by `selector.ready()` with the real manifest.
+  manifest: {} as Record<string, unknown>,
+
+  async signIn(params?: SignInParams): Promise<Account[]> {
+    assertMainnet(params?.network);
+    if (params?.addFunctionCallKey) {
+      throw new Error("Function-call access keys are not supported by passkey wallet accounts");
+    }
+
+    await retryPendingRegistration();
+
+    const existing = await storage.getActiveCredential();
+    if (existing) return [toAccount(existing)];
+
+    const choice = await ui.promptSignInChoice();
+    const active = choice === "create" ? await createNewPasskey() : await useExistingPasskey();
+    return [toAccount(active)];
+  },
+
+  async signInAndSignMessage(
+    params: SignInAndSignMessageParams,
+  ): Promise<AccountWithSignedMessage[]> {
+    const accounts = await this.signIn(params);
+    const account = accounts[0];
+    if (!account) throw new Error("sign-in produced no account");
+    const signedMessage = await this.signMessage({
+      message: params.messageParams.message,
+      recipient: params.messageParams.recipient,
+      nonce: params.messageParams.nonce,
+      network: params.network,
+    });
+    return [{ ...account, signedMessage }];
+  },
+
+  async signOut(): Promise<void> {
+    // Keep `passkey:known` — verified rawId -> key mappings stay valid.
+    await storage.clearActiveCredential();
+  },
+
+  async getAccounts(): Promise<Account[]> {
+    const active = await storage.getActiveCredential();
+    return active ? [toAccount(active)] : [];
+  },
+
+  async signMessage(params: SignMessageParams): Promise<SignedMessage> {
+    assertMainnet(params.network);
+    const active = await requireActive();
+
+    const nonce =
+      params.nonce instanceof Uint8Array ? params.nonce : new Uint8Array(params.nonce);
+    const challenge = nep413PayloadHash(params.message, params.recipient, nonce);
+    const assertion = await webauthnGet(challenge, active.rawId);
+    const proof = buildProof(active.curve, assertion);
+
+    return {
+      accountId: active.accountId,
+      publicKey: active.publicKey,
+      signature: base64.encode(new TextEncoder().encode(proof)),
+    };
+  },
+
+  async signAndSendTransaction(
+    params: SignAndSendTransactionParams,
+  ): Promise<FinalExecutionOutcome> {
+    assertMainnet(params.network);
+    const active = await requireActive();
+    const request: RequestJson = {
+      external: connectorActionsToPromises([
+        { receiverId: params.receiverId, actions: params.actions },
+      ]),
+    };
+    return executeRequest(active, request);
+  },
+
+  async signAndSendTransactions(
+    params: SignAndSendTransactionsParams,
+  ): Promise<FinalExecutionOutcome[]> {
+    assertMainnet(params.network);
+    const active = await requireActive();
+    // All transactions are bundled into a single wallet-contract request
+    // (fan-out promises) and settle atomically in one relayed transaction.
+    const request: RequestJson = {
+      external: connectorActionsToPromises(params.transactions),
+    };
+    const outcome = await executeRequest(active, request);
+    return params.transactions.map(() => outcome);
+  },
+
+  async signDelegateActions(
+    params: SignDelegateActionsParams,
+  ): Promise<SignDelegateActionsResponse> {
+    assertMainnet(params.network);
+    const active = await requireActive();
+
+    const request: RequestJson = {
+      external: connectorActionsToPromises(
+        params.delegateActions.map((d) => ({
+          receiverId: d.receiverId,
+          actions: d.actions as ConnectorAction[],
+        })),
+      ),
+    };
+    const { msg, proof } = await signRequestMessage(active, request);
+
+    // Wallet-contract variant of SignDelegateActionsResponse:
+    // base64(JSON { msg, proof, stateInit: base64(borsh(StateInit)) | null }).
+    // The relayer attaches the StateInit action iff the account is missing.
+    const stateInit = base64.encode(
+      serializeDefaultStateInit(publicKeyFromString(active.publicKey)),
+    );
+    const blob = JSON.stringify({ msg, proof, stateInit });
+    return { signedDelegateActions: [base64.encode(new TextEncoder().encode(blob))] };
+  },
+
+  async resolveAuth(params: ResolveAuthParams): Promise<ResolveAuthResponse> {
+    assertMainnet(params.network);
+    const client = getClient();
+    const signedIn = await storage.getActiveCredential();
+
+    if (signedIn) {
+      // Known account: single ceremony over the LIVE config.
+      await ensureAccountOnChain(signedIn);
+      const config = await fetchLiveConfig(client, signedIn.accountId);
+      const message = buildAuthMessage({ ...params, config });
+      const assertion = await webauthnGet(authMessageHash(message), signedIn.rawId);
+      return {
+        accountId: signedIn.accountId,
+        authorization: buildAuthorizationBlob(message, buildProof(signedIn.curve, assertion)),
+      };
+    }
+
+    // Unknown account: sign over assumed defaults, discover the credential
+    // from the assertion, then fall back to a second ceremony only when the
+    // live config diverged from the defaults.
+    const assumedMessage = buildAuthMessage({ ...params, config: DEFAULT_WALLET_CONFIG });
+    const assertion = await webauthnGet(authMessageHash(assumedMessage));
+    const resolved = await resolveCredential(assertion);
+
+    const active = toActiveCredential(resolved);
+    await storage.setActiveCredential(active);
+    try {
+      await ensureAccountOnChain(active);
+    } catch (e) {
+      // Roll back only freshly-established local state (verified `passkey:known`
+      // write-through stays — it is true regardless of relay hiccups).
+      await storage.clearActiveCredential();
+      throw e;
+    }
+
+    const liveConfig = await fetchLiveConfig(client, resolved.accountId);
+    if (configsEqual(liveConfig, DEFAULT_WALLET_CONFIG)) {
+      return {
+        accountId: resolved.accountId,
+        authorization: buildAuthorizationBlob(
+          assumedMessage,
+          buildProof(resolved.publicKey.curve, assertion),
+        ),
+      };
+    }
+
+    const liveMessage: AuthMessageJson = buildAuthMessage({ ...params, config: liveConfig });
+    const secondAssertion = await webauthnGet(authMessageHash(liveMessage), resolved.rawIdB64);
+    return {
+      accountId: resolved.accountId,
+      authorization: buildAuthorizationBlob(
+        liveMessage,
+        buildProof(resolved.publicKey.curve, secondAssertion),
+      ),
+    };
+  },
+};
+
+selector().ready(wallet);
