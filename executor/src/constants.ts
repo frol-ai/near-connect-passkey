@@ -1,5 +1,12 @@
-/** Global contract (NEP-591, deployed by account id) running every passkey wallet. */
-export const FACTORY_ID = "passkey-wallet-contract.trezu.near";
+/**
+ * Global contracts (NEP-591, deployed by account id) running passkey
+ * wallets — one per WebAuthn credential curve, since each wallet-contract
+ * variant embeds a curve-specific verifier and state layout.
+ */
+export const FACTORY_IDS = {
+  p256: "p256-passkey-wallet-contract.trezu.near",
+  ed25519: "ed25519-passkey-wallet-contract.trezu.near",
+} as const;
 
 /** Open on-chain registry mapping WebAuthn rawId -> public key candidates. */
 export const REGISTRY_ID = "passkeys-registry.near";

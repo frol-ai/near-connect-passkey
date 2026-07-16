@@ -53,7 +53,6 @@ export type AuthSignerBindingJson =
   | { type: "signer_id"; signer_id: string }
   | {
       type: "code";
-      code: CodeIdJson;
       signature_enabled: boolean;
       subwallet_id: number;
       timeout_secs: number;
@@ -144,7 +143,6 @@ function writeAuthSignerBinding(w: BorshWriter, signer: AuthSignerBindingJson): 
     return;
   }
   w.writeU8(1);
-  writeCodeId(w, signer.code);
   w.writeBool(signer.signature_enabled);
   w.writeU32(signer.subwallet_id);
   w.writeU32(signer.timeout_secs);
@@ -263,7 +261,6 @@ export function authMessageToWireJson(msg: AuthMessageJson): AuthMessageJson {
       ? { type: "signer_id", signer_id: msg.signer.signer_id }
       : {
           type: "code",
-          code: msg.signer.code,
           signature_enabled: msg.signer.signature_enabled,
           subwallet_id: msg.signer.subwallet_id,
           timeout_secs: msg.signer.timeout_secs,

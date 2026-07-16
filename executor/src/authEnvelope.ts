@@ -1,4 +1,4 @@
-import { CHAIN_ID, DEFAULT_TIMEOUT_SECS, FACTORY_ID } from "./constants";
+import { CHAIN_ID, DEFAULT_TIMEOUT_SECS } from "./constants";
 import type { AuthMessageJson } from "./walletContract";
 import { authMessageToWireJson, createdAtNow } from "./walletContract";
 
@@ -25,7 +25,15 @@ export const DEFAULT_WALLET_CONFIG: WalletConfig = {
   extensions: [],
 };
 
-/** NEP-641 AuthMessage with the passkey-style Code binding. */
+/**
+ * NEP-641 AuthMessage with the passkey-style Code binding.
+ *
+ * The envelope commits to NO code identity: the contract reconstructs the
+ * StateInit from the code it is currently running under and validates the
+ * derived deterministic account id. This keeps the envelope
+ * curve-independent — one ceremony even before the credential's curve
+ * (and thus its wallet-contract variant) is known.
+ */
 export function buildAuthMessage(args: {
   purpose: string;
   recipient: string;
@@ -36,7 +44,6 @@ export function buildAuthMessage(args: {
     chain_id: CHAIN_ID,
     signer: {
       type: "code",
-      code: { account_id: FACTORY_ID },
       signature_enabled: args.config.signature_enabled,
       subwallet_id: args.config.subwallet_id,
       timeout_secs: args.config.timeout_secs,

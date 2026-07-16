@@ -6,7 +6,11 @@ executor implementing Passkey (WebAuthn) wallets:
 - User identity = deterministic **NEP-616** account
   (`"0s" + hex(keccak256(borsh(StateInit))[12..32])`) running the WebAuthn
   wallet contract deployed as a **NEP-591** global contract by account id
-  (`passkey-wallet-contract.trezu.near`). The passkey public key IS the identity.
+  (one per credential curve: `p256-passkey-wallet-contract.trezu.near` /
+  `ed25519-passkey-wallet-contract.trezu.near`). The passkey public key IS
+  the identity. The NEP-641 envelope commits to no code identity — the
+  contract reconstructs the StateInit from the code it currently runs
+  under — so authorization stays a single ceremony regardless of curve.
 - Requests are signed by the passkey (WebAuthn assertion over the canonical
   message hash as challenge) and relayed via `w_execute_signed`; off-chain
   authorization uses **NEP-641** (`resolveAuth` / `w_resolve_auth`).

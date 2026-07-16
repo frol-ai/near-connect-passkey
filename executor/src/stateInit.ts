@@ -2,7 +2,7 @@ import { keccak_256 } from "@noble/hashes/sha3.js";
 import { base58, base64, hex } from "@scure/base";
 
 import { BorshWriter, compareBytes } from "./borsh";
-import { DEFAULT_TIMEOUT_SECS, FACTORY_ID } from "./constants";
+import { DEFAULT_TIMEOUT_SECS, FACTORY_IDS } from "./constants";
 import type { PasskeyCurve } from "./types";
 import type { CodeIdJson, StateInitJson } from "./walletContract";
 
@@ -82,7 +82,7 @@ export function serializeStateInit(
 /** borsh(StateInit) for the default passkey wallet of `publicKey`. */
 export function serializeDefaultStateInit(publicKey: PasskeyPublicKey): Uint8Array {
   // STATE_KEY is the empty byte string.
-  return serializeStateInit({ account_id: FACTORY_ID }, [
+  return serializeStateInit({ account_id: FACTORY_IDS[publicKey.curve] }, [
     [new Uint8Array(0), serializeDefaultWalletState(publicKey)],
   ]);
 }
@@ -91,7 +91,7 @@ export function serializeDefaultStateInit(publicKey: PasskeyPublicKey): Uint8Arr
 export function defaultStateInitJson(publicKey: PasskeyPublicKey): StateInitJson {
   return {
     V1: {
-      code: { account_id: FACTORY_ID },
+      code: { account_id: FACTORY_IDS[publicKey.curve] },
       data: { [base64.encode(new Uint8Array(0))]: base64.encode(serializeDefaultWalletState(publicKey)) },
     },
   };

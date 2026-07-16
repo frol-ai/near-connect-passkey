@@ -8,7 +8,10 @@ A passkey-controlled NEAR account is a deterministic
 ([NEP-616](https://github.com/near/NEPs/blob/master/neps/nep-0616.md))
 `0s…` account running the WebAuthn wallet contract
 ([NEP-591](https://github.com/near/NEPs/blob/master/neps/nep-0591.md) global
-contract deployed by account id, e.g. `passkey-wallet-contract.trezu.near`).
+contract deployed by account id — one variant per credential curve:
+`p256-passkey-wallet-contract.trezu.near` for ES256 and
+`ed25519-passkey-wallet-contract.trezu.near` for EdDSA, since each variant
+embeds a curve-specific verifier and state layout).
 The passkey's public key **is** the identity: `account_id = f(code, initial state)`.
 Authentication uses
 [NEP-641](https://github.com/near/NEPs/blob/master/neps/nep-0641.md)

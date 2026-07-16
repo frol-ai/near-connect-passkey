@@ -84,8 +84,8 @@ describe("deterministic passkey account ids", () => {
   // factory id breaks these on purpose.
   it("pins the full p256 vector", () => {
     expect(hex.encode(serializeDefaultStateInit(P256_KEY))).toBe(
-      "000122000000706173736b65792d77616c6c65742d636f6e74726163742e747265" +
-        "7a752e6e6561720100000000000000" +
+      "000127000000703235362d706173736b65792d77616c6c65742d636f6e74726163" +
+        "742e7472657a752e6e6561720100000000000000" +
         "3e000000" + // value: Vec<u8> of 62 bytes
         "0100000000" +
         "020102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20" +
@@ -93,11 +93,11 @@ describe("deterministic passkey account ids", () => {
         "0000000000000000" +
         "000000000000000000000000",
     );
-    expect(deriveAccountId(P256_KEY)).toBe("0s812f97da455fe6f4cf9f86556bad6b3d74bfff65");
+    expect(deriveAccountId(P256_KEY)).toBe("0s9dcb623ddaebc66fffc13ed50e61a3041ddae822");
   });
 
   it("pins the full ed25519 vector", () => {
-    expect(deriveAccountId(ED25519_KEY)).toBe("0s80e295906eb31a87dac48e04f1c8b5da3f2c7b4c");
+    expect(deriveAccountId(ED25519_KEY)).toBe("0s4a151d5470d41fc61df1270f6b20fd453e67b171");
   });
 });
 

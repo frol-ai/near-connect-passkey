@@ -7,7 +7,6 @@
         "chain_id": "mainnet",
         "signer": {
           "type": "code",
-          "code": { "account_id": "passkey-wallet-contract.trezu.near" },
           "signature_enabled": true,
           "subwallet_id": 0,
           "timeout_secs": 3600,
@@ -19,7 +18,7 @@
         "created_at": "1970-01-01T00:00:00Z",
         "timeout_secs": 3600
       },
-      "hash": "bf2828b22f31a29141c589134597ee3ab62de2061767dfddd8efdabac4386f01"
+      "hash": "c12aed400cf664fc6e095d201e9823e4948fdb389cbd8af5bcb675f38affce26"
     },
     {
       "name": "signer_id_binding",
@@ -38,16 +37,18 @@
       "hash": "eb9d444523a691fd4df281c6c70ed9884ac6142472ec30ead18e153a40466083"
     },
     {
-      "name": "code_binding_hash_mutated_config",
+      "name": "code_binding_mutated_config",
       "message": {
         "chain_id": "mainnet",
         "signer": {
           "type": "code",
-          "code": { "hash": "k7FaK87WHGVXzkaoHb7CdVPgkKDQhZ29VLDeBVbDfYn" },
           "signature_enabled": false,
           "subwallet_id": 5,
           "timeout_secs": 900,
-          "extensions": ["2fa.trezu.near", "recovery.trezu.near"]
+          "extensions": [
+            "2fa.trezu.near",
+            "recovery.trezu.near"
+          ]
         },
         "purpose": "PROVE_OWNERSHIP",
         "recipient": "app.trezu.app",
@@ -55,7 +56,7 @@
         "created_at": "2026-07-16T00:00:00Z",
         "timeout_secs": 3600
       },
-      "hash": "2f1172cc57cf7307ed57b53766107a5d8070d4507c67aa2652b51ab3a54a831a"
+      "hash": "35dc09b64e8e93b5304c64c529be468da04c8325328b6d51434391ad1d8a4257"
     }
   ]
 }

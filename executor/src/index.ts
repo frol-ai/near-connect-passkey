@@ -452,12 +452,12 @@ const wallet = {
     // reconstructs the NEP-616 StateInit from the envelope + its stored
     // public key and checks the derived account id), so the envelope is
     // always built from the defaults this executor creates wallets with —
-    // it stays valid even after on-chain config mutations. One ceremony,
-    // always.
+    // it stays valid even after on-chain config mutations.
+
+    const signedIn = await storage.getActiveCredential();
     const message = buildAuthMessage({ ...params, config: DEFAULT_WALLET_CONFIG });
     const challenge = authMessageHash(message);
 
-    const signedIn = await storage.getActiveCredential();
     if (signedIn) {
       await ensureAccountOnChain(signedIn);
       const assertion = await webauthnGet(challenge, signedIn.rawId);
@@ -467,8 +467,10 @@ const wallet = {
       };
     }
 
-    // Unknown account: discover the credential from the assertion itself
-    // (local cache first, registry on miss, verified against the signature).
+    // Unknown credential: one discovery ceremony (the envelope is
+    // curve-independent), then resolve the credential from the assertion
+    // itself (local cache first, registry on miss, verified against the
+    // signature).
     const assertion = await webauthnGet(challenge);
     const resolved = await resolveCredential(assertion);
 
