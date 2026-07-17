@@ -1,0 +1,83 @@
+name: executor
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "executor/**"
+      - "passkey-executor.js"
+      - ".github/workflows/executor.yml"
+  pull_request:
+    paths:
+      - "executor/**"
+      - "passkey-executor.js"
+      - ".github/workflows/executor.yml"
+  workflow_dispatch:
+
+# Newer pushes to the same ref cancel in-flight runs.
+concurrency:
+  group: executor-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: executor
+
+jobs:
+  test:
+    name: typecheck + test (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["20.x", "22.x", "24.x"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: executor/package-lock.json
+      - run: npm ci
+      - name: Typecheck (tsc --noEmit)
+        run: npm run typecheck
+      - name: Unit tests (vitest)
+        run: npm run test
+
+  bundle-drift:
+    name: committed bundle is in sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.x"
+          cache: npm
+          cache-dependency-path: executor/package-lock.json
+      - run: npm ci
+      - name: Rebuild single-file bundle
+        run: npm run build
+      - name: Fail if passkey-executor.js differs from a fresh build
+        working-directory: .
+        run: |
+          if ! git diff --exit-code -- passkey-executor.js; then
+            echo "::error::passkey-executor.js is out of sync with src/. Run 'npm run build' in executor/ and commit the result."
+            exit 1
+          fi
+
+  audit:
+    name: npm audit (prod deps)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.x"
+          cache: npm
+          cache-dependency-path: executor/package-lock.json
+      - run: npm ci
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high

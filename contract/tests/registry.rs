@@ -40,8 +40,8 @@ async fn setup() -> (near_sandbox::Sandbox, NetworkConfig, AccountId, Arc<Signer
     let network = NetworkConfig::from_rpc_url("sandbox", sandbox.rpc_addr.parse().unwrap());
 
     let account: AccountId = DEFAULT_GENESIS_ACCOUNT.into();
-    let signer = Signer::from_secret_key(DEFAULT_GENESIS_ACCOUNT_PRIVATE_KEY.parse().unwrap())
-        .unwrap();
+    let signer =
+        Signer::from_secret_key(DEFAULT_GENESIS_ACCOUNT_PRIVATE_KEY.parse().unwrap()).unwrap();
 
     Contract::deploy(account.clone())
         .use_code(wasm())
@@ -55,16 +55,9 @@ async fn setup() -> (near_sandbox::Sandbox, NetworkConfig, AccountId, Arc<Signer
     (sandbox, network, account, signer)
 }
 
-async fn get(
-    network: &NetworkConfig,
-    contract_id: &AccountId,
-    raw_id: &str,
-) -> Vec<String> {
+async fn get(network: &NetworkConfig, contract_id: &AccountId, raw_id: &str) -> Vec<String> {
     let result: Data<Vec<String>> = Contract(contract_id.clone())
-        .call_function(
-            "get",
-            serde_json::json!({ "passkey_raw_id": raw_id }),
-        )
+        .call_function("get", serde_json::json!({ "passkey_raw_id": raw_id }))
         .read_only()
         .fetch_from(network)
         .await

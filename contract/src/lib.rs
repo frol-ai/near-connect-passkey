@@ -69,12 +69,15 @@ impl PublicKey {
             None
         }
     }
+}
 
-    /// Canonical curve-prefixed string representation.
-    fn to_string(&self) -> String {
+/// Canonical curve-prefixed string representation
+/// (`ToString`/`to_string()` come for free via this `Display` impl).
+impl core::fmt::Display for PublicKey {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            Self::P256(bytes) => format!("p256:{}", bs58::encode(bytes).into_string()),
-            Self::Ed25519(bytes) => format!("ed25519:{}", bs58::encode(bytes).into_string()),
+            Self::P256(bytes) => write!(f, "p256:{}", bs58::encode(bytes).into_string()),
+            Self::Ed25519(bytes) => write!(f, "ed25519:{}", bs58::encode(bytes).into_string()),
         }
     }
 }
@@ -130,8 +133,7 @@ impl PasskeysRegistry {
         env::log_str(&format!(
             r#"EVENT_JSON:{{"standard":"passkeys-registry","version":"1.0.0","event":"register","data":[{{"raw_id":{},"public_key":{}}}]}}"#,
             near_sdk::serde_json::to_string(&passkey_raw_id).unwrap_or_else(|_| unreachable!()),
-            near_sdk::serde_json::to_string(&passkey_public_key)
-                .unwrap_or_else(|_| unreachable!()),
+            near_sdk::serde_json::to_string(&passkey_public_key).unwrap_or_else(|_| unreachable!()),
         ));
     }
 
@@ -177,7 +179,11 @@ mod tests {
         format!(
             "p256:{}",
             bs58::encode(
-                [0x02].iter().chain([7u8; 32].iter()).copied().collect::<Vec<u8>>()
+                [0x02]
+                    .iter()
+                    .chain([7u8; 32].iter())
+                    .copied()
+                    .collect::<Vec<u8>>()
             )
             .into_string()
         )
@@ -239,7 +245,10 @@ mod tests {
             // too long rawId
             (raw_id(&vec![3u8; 1024]), p256_key()),
             // missing curve prefix
-            (raw_id(&[3u8; 16]), "6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp".to_string()),
+            (
+                raw_id(&[3u8; 16]),
+                "6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp".to_string(),
+            ),
             // wrong p256 length (32 instead of 33)
             (
                 raw_id(&[3u8; 16]),
@@ -251,7 +260,11 @@ mod tests {
                 format!(
                     "p256:{}",
                     bs58::encode(
-                        [0x05].iter().chain([7u8; 32].iter()).copied().collect::<Vec<u8>>()
+                        [0x05]
+                            .iter()
+                            .chain([7u8; 32].iter())
+                            .copied()
+                            .collect::<Vec<u8>>()
                     )
                     .into_string()
                 ),

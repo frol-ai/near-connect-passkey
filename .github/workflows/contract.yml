@@ -1,0 +1,80 @@
+name: contract
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "contract/**"
+      - ".github/workflows/contract.yml"
+  pull_request:
+    paths:
+      - "contract/**"
+      - ".github/workflows/contract.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: contract-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: contract
+
+jobs:
+  fmt:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust (rustfmt)
+        run: rustup toolchain install stable --profile minimal --component rustfmt
+      - run: cargo fmt --check
+
+  clippy:
+    name: clippy (-D warnings)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust (clippy)
+        run: rustup toolchain install stable --profile minimal --component clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: contract
+      - run: cargo clippy --all-targets --all-features -- -D warnings
+
+  test:
+    name: cargo test (unit + sandbox integration)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal
+      - name: Add wasm target
+        run: rustup target add wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: contract
+      # tests/registry.rs spins up near-sandbox (downloads the sandbox binary).
+      - run: cargo test --all-features --verbose
+
+  reproducible-build:
+    name: reproducible wasm (cargo-near, docker)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        run: rustup toolchain install stable --profile minimal
+      - name: Install cargo-near
+        run: |
+          curl --proto '=https' --tlsv1.2 -LsSf \
+            https://github.com/near/cargo-near/releases/latest/download/cargo-near-installer.sh | sh
+      # Reproducible build runs inside the pinned docker image from
+      # Cargo.toml [package.metadata.near.reproducible_build]. Requires a
+      # clean, committed git tree — the checkout above provides one.
+      - name: Build reproducible wasm
+        run: cargo near build reproducible-wasm

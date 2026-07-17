@@ -1,0 +1,30 @@
+version: 2
+updates:
+  # Executor (npm)
+  - package-ecosystem: npm
+    directory: /executor
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
+
+  # Contract (cargo)
+  - package-ecosystem: cargo
+    directory: /contract
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      cargo-minor-patch:
+        update-types: [minor, patch]
+
+  # CI actions
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
