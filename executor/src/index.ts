@@ -294,8 +294,24 @@ async function createNewPasskey(): Promise<ActiveCredential> {
   const rawIdB64 = rawIdToB64(created.rawId);
   const accountId = deriveAccountId(publicKey);
 
-  // Persist BEFORE registering so an interrupted registration is retried
-  // on the next signIn instead of losing the key mapping forever.
+  // Record the rawId -> publicKey mapping locally the MOMENT the credential
+  // exists on this device — before the on-chain registration round-trip. Two
+  // reasons:
+  //  1. It is a local truth: we just extracted (and will use) this key; it is
+  //     valid regardless of whether/when registration reaches the registry.
+  //  2. It is the signal that makes the NEXT sign-up recognise this device
+  //     already has an account and show the passkey-label prompt. Writing it
+  //     only after registration meant a deferred/retried/cancelled
+  //     registration left `passkey:known` empty, so additional sign-ups were
+  //     mis-detected as the first and skipped the label screen.
+  await storage.addKnownCredential(rawIdB64, {
+    publicKey: publicKeyStr,
+    curve: publicKey.curve,
+    accountId,
+  });
+
+  // Persist the pending registration too, so an interrupted registration is
+  // retried on the next signIn.
   await storage.setPendingRegistration({
     rawIdB64,
     publicKey: publicKeyStr,
@@ -304,11 +320,6 @@ async function createNewPasskey(): Promise<ActiveCredential> {
   await registerWithUi(rawIdB64, publicKeyStr);
   await storage.clearPendingRegistration();
 
-  await storage.addKnownCredential(rawIdB64, {
-    publicKey: publicKeyStr,
-    curve: publicKey.curve,
-    accountId,
-  });
   const active: ActiveCredential = {
     rawId: rawIdB64,
     publicKey: publicKeyStr,
