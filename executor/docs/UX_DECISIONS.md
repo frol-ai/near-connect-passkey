@@ -93,7 +93,47 @@ mechanisms are listed only inside error messages, where enumerating the
 options ("Face ID, a fingerprint, a screen lock, or a PIN") helps the user
 find the setting.
 
-## 8. Internationalization
+## 8. Motion & visual design — native biometric hand-off
+
+The overlay should feel like the system's own Face ID / Touch ID / Windows
+Hello / Android screen-lock sheet, not a web modal bolted on. All of it lives
+in one injected stylesheet in `ui.ts` (no runtime deps), so it renders
+identically on every host.
+
+- **Translucent material card.** `backdrop-filter: blur(30px) saturate(180%)`
+  over a semi-transparent surface, hairline border, deep soft shadow — the
+  iOS "thick material" look. Light and dark variants via
+  `prefers-color-scheme`.
+- **Materialize entrance.** Each screen scales up from `0.94` with a tiny
+  overshoot to `1.0` on the iOS spring ease `cubic-bezier(0.32, 0.72, 0, 1)`
+  (~460 ms) while fading in — the panel arrives as a physical object, not a
+  flat opacity fade.
+- **Biometric glyph.** A Face ID–style bracket-corner + face mark (inline
+  SVG) draws its corners in, then *breathes* (slow 2.6 s scale, ~0.38 Hz —
+  deliberately outside the ~0.2 Hz vestibular-trigger range) with a soft glow.
+  It appears on the entry screen and every ceremony hand-off screen so the
+  wallet's UI reads as continuous with the incoming system prompt.
+- **Activation scan.** On the confirm button press, a scan line sweeps the
+  glyph and it does a quick confirm-pulse. Critically, `promptConfirm`
+  resolves **synchronously** on that press (see §6) — the animation is CSS
+  only and never delays `navigator.credentials.get()`.
+- **Ring spinner** for pure network steps (publishing the key, account setup),
+  kept distinct from the biometric glyph so the two states read differently.
+- **Press feedback** on pointer-down: buttons scale to `0.97` and dim
+  slightly, immediately (Response — kill latency).
+
+Accessibility is baked in, not optional:
+
+- `prefers-reduced-motion: reduce` → drops every transform/loop/spring, keeps
+  short opacity cross-fades, and freezes the glyph in its drawn state.
+- `prefers-reduced-transparency: reduce` → solid card, no blur.
+- `prefers-contrast: more` → solid card with a contrasting border.
+
+When editing: animate only `transform`/`opacity`, keep the click→ceremony path
+free of `await`, and never add a looping animation near 0.2 Hz or a
+full-viewport moving background.
+
+## 9. Internationalization
 
 All user-facing strings live in `src/i18n.ts`, translated into the five most
 widely spoken languages by total speakers: English, Mandarin Chinese, Hindi,

@@ -283,7 +283,7 @@ async function createNewPasskey(): Promise<ActiveCredential> {
   // ask for a username/email label so the accounts stay distinguishable.
   const isFirstAccount = Object.keys(await storage.getKnownCredentials()).length === 0;
   const name = isFirstAccount ? DEFAULT_PASSKEY_LABEL : await ui.promptPasskeyLabel();
-  await ui.showProgress(t("createPasskeyTitle"), t("createPasskeySubtitle"));
+  await ui.showProgress(t("createPasskeyTitle"), t("createPasskeySubtitle"), "biometric");
   const created = await webauthnCreate(name);
   await ui.showProgress(t("registeringTitle"), t("registeringSubtitle"));
 
@@ -328,7 +328,7 @@ async function createNewPasskey(): Promise<ActiveCredential> {
 }
 
 async function useExistingPasskey(): Promise<ActiveCredential> {
-  await ui.showProgress(t("usePasskeyTitle"), t("usePasskeySubtitle"));
+  await ui.showProgress(t("usePasskeyTitle"), t("usePasskeySubtitle"), "biometric");
   const assertion = await webauthnGet(new Uint8Array(randomBytes(32)));
   await ui.showProgress(t("lookingUpTitle"), t("lookingUpSubtitle"));
   let resolved: ResolvedCredential;
@@ -595,7 +595,7 @@ const wallet = {
       // curve-independent), then resolve the credential from the assertion
       // itself (local cache first, registry on miss, verified against the
       // signature).
-      await ui.showProgress(t("usePasskeyTitle"), t("usePasskeySubtitle"));
+      await ui.showProgress(t("usePasskeyTitle"), t("usePasskeySubtitle"), "biometric");
       const assertion = await webauthnGet(challenge);
       await ui.showProgress(t("lookingUpTitle"), t("lookingUpSubtitle"));
       let resolved: ResolvedCredential;
