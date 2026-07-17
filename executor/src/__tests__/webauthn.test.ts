@@ -6,6 +6,8 @@ import { describe, expect, it } from "vitest";
 import { concatBytes } from "../borsh";
 import {
   assertionSignedBytes,
+  authenticatorUserVerified,
+  decodeCbor,
   derToRawLowS,
   extractCosePublicKey,
   extractCredentialPublicKey,
@@ -13,6 +15,7 @@ import {
   signatureToString,
   verifyAssertion,
 } from "../webauthn";
+import { friendlyWebauthnError } from "../errors";
 
 // ─── Minimal CBOR encoder (tests only) ───────────────────────────────────────
 
@@ -252,5 +255,84 @@ describe("local assertion verification", () => {
     const { secretKey } = p256.keygen();
     const publicKey = p256.Point.fromBytes(p256.getPublicKey(secretKey)).toBytes(true);
     expect(verifyAssertion({ curve: "p256", bytes: publicKey }, assertion)).toBe(false);
+  });
+});
+
+describe("authenticator user-verification flag", () => {
+  function authData(flags: number): Uint8Array {
+    return new Uint8Array([...new Uint8Array(32).fill(0x22), flags, 0, 0, 0, 0]);
+  }
+
+  it("accepts UP+UV set", () => {
+    expect(authenticatorUserVerified(authData(FLAGS_UP_UV))).toBe(true);
+  });
+
+  it("rejects user-presence only (UV clear)", () => {
+    expect(authenticatorUserVerified(authData(0b0000_0001))).toBe(false);
+  });
+
+  it("rejects UV set without UP", () => {
+    expect(authenticatorUserVerified(authData(0b0000_0100))).toBe(false);
+  });
+});
+
+describe("CBOR decoder: tags and simple values", () => {
+  it("unwraps a semantic tag (major 6)", () => {
+    // tag(2) wrapping byte-string 0x01 0x02 -> [0xc2, 0x42, 0x01, 0x02]
+    const decoded = decodeCbor(new Uint8Array([0xc2, 0x42, 0x01, 0x02]));
+    expect(decoded).toEqual(new Uint8Array([0x01, 0x02]));
+  });
+
+  it("decodes simple values inside a map (false/true/null)", () => {
+    // {"a": true, "b": false, "c": null}
+    const bytes = new Uint8Array([
+      0xa3,
+      0x61, 0x61, 0xf5, // "a": true
+      0x61, 0x62, 0xf4, // "b": false
+      0x61, 0x63, 0xf6, // "c": null
+    ]);
+    const map = decodeCbor(bytes) as Map<string, unknown>;
+    expect(map.get("a")).toBe(true);
+    expect(map.get("b")).toBe(false);
+    expect(map.get("c")).toBe(0);
+  });
+
+  it("skips a float and keeps decoding the next key", () => {
+    // {"x": 1.5 (half-float 0xf9 0x3e00), "y": 7}
+    const bytes = new Uint8Array([
+      0xa2,
+      0x61, 0x78, 0xf9, 0x3e, 0x00, // "x": half-float 1.5
+      0x61, 0x79, 0x07, // "y": 7
+    ]);
+    const map = decodeCbor(bytes) as Map<string, unknown>;
+    expect(map.get("y")).toBe(7);
+  });
+});
+
+describe("friendly WebAuthn errors", () => {
+  const named = (name: string): Error => Object.assign(new Error("raw jargon"), { name });
+
+  it("maps cancellation without blaming hardware", () => {
+    const msg = friendlyWebauthnError(named("NotAllowedError"), "get");
+    expect(msg).toMatch(/cancelled or timed out/i);
+    expect(msg).not.toMatch(/raw jargon/);
+  });
+
+  it("routes a duplicate passkey to 'use existing'", () => {
+    expect(friendlyWebauthnError(named("InvalidStateError"), "create")).toMatch(
+      /already have a passkey/i,
+    );
+  });
+
+  it("explains a missing PIN / screen lock", () => {
+    expect(friendlyWebauthnError(named("ConstraintError"), "create")).toMatch(
+      /PIN, fingerprint, or face unlock/i,
+    );
+  });
+
+  it("falls back to a safe generic message", () => {
+    expect(friendlyWebauthnError(named("WeirdUnknownError"), "get")).toMatch(
+      /something went wrong/i,
+    );
   });
 });

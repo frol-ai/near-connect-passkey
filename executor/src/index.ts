@@ -36,6 +36,7 @@ import type {
   SignInParams,
   SignMessageParams,
   SignedMessage,
+  WebauthnCreateResult,
   WebauthnGetResult,
 } from "./types";
 import { selector } from "./types";
@@ -47,12 +48,14 @@ import {
   requestMessageHash,
 } from "./walletContract";
 import {
+  authenticatorUserVerified,
   b64ToRawId,
   buildProof,
   extractCredentialPublicKey,
   rawIdToB64,
   verifyAssertion,
 } from "./webauthn";
+import { friendlyWebauthnError } from "./errors";
 import type { AuthMessageJson } from "./walletContract";
 import { authMessageHash } from "./walletContract";
 
@@ -103,18 +106,56 @@ function randomBytes(length: number): number[] {
   return Array.from(crypto.getRandomValues(new Uint8Array(length)));
 }
 
-async function webauthnCreate(name: string) {
-  return selector().webauthn.create({
-    challenge: randomBytes(32),
-    rp: { name },
-    user: { id: randomBytes(16), name, displayName: name },
-    pubKeyCredParams: [
-      { alg: -8, type: "public-key" }, // EdDSA (Ed25519)
-      { alg: -7, type: "public-key" }, // ES256 (P-256)
-    ],
-    authenticatorSelection: { residentKey: "required", userVerification: "preferred" },
-    attestation: "none",
-  });
+/**
+ * Discoverable (resident) credentials this device already holds for the
+ * wallet — passed as `excludeCredentials` so a second "create" surfaces an
+ * `InvalidStateError` (→ "use existing") instead of minting a duplicate
+ * passkey and a second, fund-splitting account.
+ */
+async function excludeExistingCredentials(): Promise<Array<{ id: number[]; type: "public-key" }>> {
+  const known = await storage.getKnownCredentials();
+  return Object.keys(known).map((rawIdB64) => ({ id: b64ToRawId(rawIdB64), type: "public-key" }));
+}
+
+async function webauthnCreate(name: string): Promise<WebauthnCreateResult> {
+  // Resident key + user verification are BOTH required:
+  // - resident (discoverable): the credential must be recoverable by
+  //   discovery on any origin the passkey syncs to; a non-resident key would
+  //   be permanently unreachable (no rawId to hand to allowCredentials).
+  // - userVerification: a wallet must never sign on mere presence (a bare
+  //   security-key touch); require biometric / PIN / screen lock.
+  let result: WebauthnCreateResult;
+  try {
+    result = await selector().webauthn.create({
+      challenge: randomBytes(32),
+      rp: { name },
+      user: { id: randomBytes(16), name, displayName: name },
+      pubKeyCredParams: [
+        { alg: -8, type: "public-key" }, // EdDSA (Ed25519)
+        { alg: -7, type: "public-key" }, // ES256 (P-256)
+      ],
+      authenticatorSelection: {
+        residentKey: "required",
+        requireResidentKey: true, // legacy L1 field; some browsers honor only this
+        userVerification: "required",
+      },
+      excludeCredentials: await excludeExistingCredentials(),
+      extensions: { credProps: true },
+      attestation: "none",
+    });
+  } catch (e) {
+    throw new Error(friendlyWebauthnError(e, "create"));
+  }
+
+  // If the browser reports credProps, insist the key is actually resident —
+  // a non-resident key would leave the account unrecoverable.
+  if (result.clientExtensionResults?.credProps?.rk === false) {
+    throw new Error(
+      "Your device created a passkey that can't be recovered later (it isn't a resident key). " +
+        "Please try a different device or use your phone to create the passkey.",
+    );
+  }
+  return result;
 }
 
 async function webauthnGet(
@@ -123,14 +164,29 @@ async function webauthnGet(
 ): Promise<WebauthnGetResult> {
   const options: Record<string, unknown> = {
     challenge: Array.from(challenge),
-    userVerification: "preferred",
+    // A wallet signature must always verify the user, never presence-only.
+    userVerification: "required",
   };
   if (rawIdB64) {
     options["allowCredentials"] = [
       { id: b64ToRawId(rawIdB64), type: "public-key" },
     ];
   }
-  return selector().webauthn.get(options);
+  let result: WebauthnGetResult;
+  try {
+    result = await selector().webauthn.get(options);
+  } catch (e) {
+    throw new Error(friendlyWebauthnError(e, "get"));
+  }
+  // Defense in depth: even with userVerification "required" requested, only
+  // trust an assertion whose authenticator actually set the UV flag.
+  if (!authenticatorUserVerified(new Uint8Array(result.authenticatorData))) {
+    throw new Error(
+      "Your device signed in without verifying it's you. Please set up Face ID, a fingerprint, " +
+        "a screen lock, or a security-key PIN, then try again.",
+    );
+  }
+  return result;
 }
 
 // ─── Credential resolution ───────────────────────────────────────────────────
@@ -230,10 +286,24 @@ async function retryPendingRegistration(): Promise<void> {
 
 async function createNewPasskey(): Promise<ActiveCredential> {
   const name = await ui.promptPasskeyName();
-  await ui.showProgress("Create your passkey", "Follow your device's Face ID / Touch ID prompt");
+  await ui.showProgress("Create your passkey", "Confirm with your device when it asks");
   const created = await webauthnCreate(name);
   await ui.showProgress("Registering your passkey", "Publishing its public key on NEAR…");
-  const publicKey = extractCredentialPublicKey(created);
+
+  // The passkey now exists in the user's device keychain. If we cannot read
+  // its public key (an unsupported key type slipped through, or a malformed
+  // attestation) it becomes an orphan — created but unusable by this wallet.
+  // Tell the user in plain terms so they can remove the stray passkey.
+  let publicKey;
+  try {
+    publicKey = extractCredentialPublicKey(created);
+  } catch {
+    throw new Error(
+      "Your device created a passkey this wallet can't use. Please open your device's " +
+        "password / passkey settings, delete the passkey you just created for this site, " +
+        "then try again on a different device.",
+    );
+  }
   const publicKeyStr = publicKeyToString(publicKey);
   const rawIdB64 = rawIdToB64(created.rawId);
   const accountId = deriveAccountId(publicKey);
@@ -265,7 +335,7 @@ async function createNewPasskey(): Promise<ActiveCredential> {
 }
 
 async function useExistingPasskey(): Promise<ActiveCredential> {
-  await ui.showProgress("Use your passkey", "Pick a passkey and confirm with Face ID / Touch ID");
+  await ui.showProgress("Use your passkey", "Pick a passkey and confirm with your device");
   const assertion = await webauthnGet(new Uint8Array(randomBytes(32)));
   await ui.showProgress("Looking up your account", "Resolving your passkey on NEAR…");
   let resolved: ResolvedCredential;
@@ -296,7 +366,9 @@ async function signRequestMessage(
   request: RequestJson,
 ): Promise<{ msg: RequestMessageJson; proof: string }> {
   const msg = buildRequestMessage(active.accountId, await storage.nextNonce(), request);
-  await ui.showProgress("Approve transaction", "Confirm with Face ID / Touch ID");
+  // The button tap supplies the transient user activation iOS/Safari require,
+  // and the ceremony runs straight off the click with no network in between.
+  await ui.promptConfirm("Approve transaction", "Confirm with your device to approve.", "Approve");
   try {
     const assertion = await webauthnGet(requestMessageHash(msg), active.rawId);
     return { msg, proof: buildProof(active.curve, assertion) };
@@ -403,14 +475,19 @@ const wallet = {
     const nonce =
       params.nonce instanceof Uint8Array ? params.nonce : new Uint8Array(params.nonce);
     const challenge = nep413PayloadHash(params.message, params.recipient, nonce);
-    const assertion = await webauthnGet(challenge, active.rawId);
-    const proof = buildProof(active.curve, assertion);
-
-    return {
-      accountId: active.accountId,
-      publicKey: active.publicKey,
-      signature: base64.encode(new TextEncoder().encode(proof)),
-    };
+    // Fresh user activation for the ceremony (dApp-initiated, no prior tap).
+    await ui.promptConfirm("Confirm signature", "Confirm with your device to sign this message.", "Sign");
+    try {
+      const assertion = await webauthnGet(challenge, active.rawId);
+      const proof = buildProof(active.curve, assertion);
+      return {
+        accountId: active.accountId,
+        publicKey: active.publicKey,
+        signature: base64.encode(new TextEncoder().encode(proof)),
+      };
+    } finally {
+      await ui.closeUi();
+    }
   },
 
   async signAndSendTransaction(
@@ -487,7 +564,8 @@ const wallet = {
 
     if (signedIn) {
       try {
-        await ui.showProgress("Confirm sign-in", "Confirm with Face ID / Touch ID");
+        // Fresh user activation for the ceremony (dApp-initiated sign-in).
+        await ui.promptConfirm("Confirm sign-in", "Confirm with your device to sign in.", "Sign in");
         const assertion = await webauthnGet(challenge, signedIn.rawId);
         await ui.showProgress("Signing you in", "Finalizing your account on NEAR…");
         await ensureAccountOnChain(signedIn);
@@ -509,7 +587,8 @@ const wallet = {
     try {
       if (choice === "create") {
         const active = await createNewPasskey();
-        await ui.showProgress("Confirm sign-in", "Confirm once more with Face ID / Touch ID");
+        // Fresh activation after the (network-bound) registration step.
+        await ui.promptConfirm("Confirm sign-in", "Confirm once more with your device.", "Sign in");
         const assertion = await webauthnGet(challenge, active.rawId);
         await ui.showProgress("Signing you in", "Setting up your account on NEAR…");
         await ensureAccountOnChain(active);
@@ -523,7 +602,7 @@ const wallet = {
       // curve-independent), then resolve the credential from the assertion
       // itself (local cache first, registry on miss, verified against the
       // signature).
-      await ui.showProgress("Use your passkey", "Pick a passkey and confirm with Face ID / Touch ID");
+      await ui.showProgress("Use your passkey", "Pick a passkey and confirm with your device");
       const assertion = await webauthnGet(challenge);
       await ui.showProgress("Looking up your account", "Resolving your passkey on NEAR…");
       let resolved: ResolvedCredential;

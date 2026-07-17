@@ -61,7 +61,7 @@ export type SignInChoice = "existing" | "create";
 export async function promptSignInChoice(): Promise<SignInChoice> {
   const el = await openDialog(`
     <h1>Passkey Wallet</h1>
-    <p>Sign in with Face ID / Touch ID — no seed phrase, no extension</p>
+    <p>Sign in with your device — no seed phrase, no extension</p>
     <button id="pk-create">Create new account</button>
     <button id="pk-existing" style="${SECONDARY_BUTTON_STYLE}">Use existing passkey</button>
   `);
@@ -70,6 +70,28 @@ export async function promptSignInChoice(): Promise<SignInChoice> {
     el.querySelector("#pk-create")?.addEventListener("click", () => resolve("create"));
     // no cancel affordance beyond host-side iframe close; keep reject unused
     void reject;
+  });
+}
+
+/**
+ * A single-button confirmation shown immediately before a WebAuthn ceremony
+ * that the dApp (not a user tap) initiated — signing a transaction/message,
+ * or confirming a returning sign-in. The button click supplies the transient
+ * user activation Safari/iOS require for `navigator.credentials.get()`, and
+ * the ceremony is invoked directly from the click with no network in between.
+ */
+export async function promptConfirm(
+  title: string,
+  subtitle: string,
+  buttonLabel: string,
+): Promise<void> {
+  const el = await openDialog(`
+    <h1>${escapeHtml(title)}</h1>
+    <p>${escapeHtml(subtitle)}</p>
+    <button id="pk-confirm">${escapeHtml(buttonLabel)}</button>
+  `);
+  return new Promise<void>((resolve) => {
+    el.querySelector("#pk-confirm")?.addEventListener("click", () => resolve());
   });
 }
 

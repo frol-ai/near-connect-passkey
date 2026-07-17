@@ -151,6 +151,13 @@ export interface WebauthnCreateResult {
   clientDataJSON: number[];
   attestationObject: number[];
   publicKey?: number[] | null;
+  /**
+   * `navigator.credentials.create().getClientExtensionResults()`, when the
+   * sandbox bridge forwards it. `credProps.rk` reports whether a discoverable
+   * (resident) credential was actually created — the only client-visible
+   * signal that the resident-key requirement was honored.
+   */
+  clientExtensionResults?: { credProps?: { rk?: boolean } } | null;
 }
 
 export interface WebauthnGetResult {

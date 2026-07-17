@@ -9,7 +9,7 @@ import type { PasskeyCurve, WebauthnGetResult } from "./types";
 
 // ─── Minimal CBOR decoder (enough for WebAuthn attestation objects) ─────────
 
-type CborValue = number | bigint | Uint8Array | string | CborValue[] | CborMap;
+type CborValue = number | bigint | boolean | Uint8Array | string | CborValue[] | CborMap;
 type CborMap = Map<number | string, CborValue>;
 
 function readLength(bytes: Uint8Array, offset: number, info: number): [number, number] {
@@ -81,9 +81,43 @@ function decodeItem(bytes: Uint8Array, offset: number): [CborValue, number] {
       }
       return [map, cursor];
     }
+    case 6: {
+      // Semantic tag: read (and discard) the tag number, return the tagged
+      // item. Some authenticators wrap attestation-statement values in tags.
+      const [, next] = readLength(bytes, offset, info);
+      return decodeItem(bytes, next);
+    }
+    case 7: {
+      // Simple values (false/true/null/undefined) and floats. We only ever
+      // need the simple values; consume floats so decoding doesn't derail.
+      if (info < 20) return [info, offset]; // simple value in the type byte
+      if (info === 20) return [false, offset];
+      if (info === 21) return [true, offset];
+      if (info === 22 || info === 23) return [0, offset]; // null / undefined
+      if (info === 24) return [at(bytes, offset), offset + 1]; // simple, 1 byte
+      if (info === 25) return [0, offset + 2]; // half-float: skip 2 bytes
+      if (info === 26) return [0, offset + 4]; // single-float: skip 4 bytes
+      if (info === 27) return [0, offset + 8]; // double-float: skip 8 bytes
+      throw new Error("CBOR: unsupported simple/float value");
+    }
     default:
       throw new Error(`CBOR: unsupported major type ${major}`);
   }
+}
+
+// ─── Authenticator-data flags ────────────────────────────────────────────────
+
+const FLAG_USER_PRESENT = 0x01;
+const FLAG_USER_VERIFIED = 0x04;
+
+/**
+ * WebAuthn authenticatorData layout: rpIdHash(32) then a 1-byte flags field.
+ * The UV bit is set only when the authenticator actually verified the user
+ * (biometric / PIN / screen lock) rather than mere presence (a bare touch).
+ */
+export function authenticatorUserVerified(authenticatorData: Uint8Array): boolean {
+  const flags = at(authenticatorData, 32);
+  return (flags & FLAG_USER_PRESENT) !== 0 && (flags & FLAG_USER_VERIFIED) !== 0;
 }
 
 export function decodeCbor(bytes: Uint8Array): CborValue {

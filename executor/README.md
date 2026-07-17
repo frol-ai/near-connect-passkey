@@ -16,6 +16,18 @@ executor implementing Passkey (WebAuthn) wallets:
   authorization uses **NEP-641** (`resolveAuth` / `w_resolve_auth`).
 - Supports both COSE algorithms: ES256 / P-256 (`p256:<base58(33B SEC-1 compressed)>`)
   and EdDSA / Ed25519 (`ed25519:<base58(32B)>`).
+- **Resident (discoverable) keys only** — `create()` requests
+  `residentKey: "required"` + legacy `requireResidentKey: true`, and rejects the
+  credential when `credProps.rk === false`. A non-resident key would be
+  unrecoverable (no rawId to feed `allowCredentials`, and discovery can't find
+  it). New creates pass `excludeCredentials` (from `passkey:known`) so a second
+  "create" on the same device errors instead of minting a duplicate account.
+- **User verification is mandatory** — both ceremonies request
+  `userVerification: "required"`, and every assertion is additionally checked
+  for the UV flag in `authenticatorData` before its proof is trusted. A wallet
+  never signs on mere user-presence (a bare security-key touch).
+- WebAuthn failures are mapped to short, non-technical, actionable messages
+  (`src/errors.ts`) instead of raw `DOMException` codes.
 - `rawId -> publicKey` recovery goes through the open on-chain registry
   `passkeys-registry.near`; every candidate key is verified locally against
   the assertion signature — only the credential's true key is accepted.
@@ -94,7 +106,8 @@ domain, which the sandboxed executor deliberately does not do.
 | `stateInit.ts` | wallet `State` defaults, `StateInit` borsh, NEP-616 account id derivation |
 | `authEnvelope.ts` | NEP-641 message building (initial-state Code binding), authorization blob |
 | `protocol.ts` | raw NEAR protocol tx encoder (StateInit support) + JSON-RPC broadcast |
-| `webauthn.ts` | CBOR/COSE/SPKI key extraction, DER→raw low-S, local assertion verify, proof blob |
+| `webauthn.ts` | CBOR/COSE/SPKI key extraction, DER→raw low-S, local assertion verify, UV-flag check, proof blob |
+| `errors.ts` | WebAuthn `DOMException` → plain-language, non-technical user messages |
 | `registry.ts` | `passkeys-registry.near` get/register (retry + backoff) |
 | `relayer.ts` | sponsor-signed relaying of `w_execute_signed` / StateInit |
 | `storage.ts` | typed sandboxed-storage accessors, nonce counter |
