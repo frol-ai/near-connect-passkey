@@ -56,6 +56,7 @@ import {
   verifyAssertion,
 } from "./webauthn";
 import { friendlyWebauthnError } from "./errors";
+import { t } from "./i18n";
 import type { AuthMessageJson } from "./walletContract";
 import { authMessageHash } from "./walletContract";
 
@@ -150,10 +151,7 @@ async function webauthnCreate(name: string): Promise<WebauthnCreateResult> {
   // If the browser reports credProps, insist the key is actually resident —
   // a non-resident key would leave the account unrecoverable.
   if (result.clientExtensionResults?.credProps?.rk === false) {
-    throw new Error(
-      "Your device created a passkey that can't be recovered later (it isn't a resident key). " +
-        "Please try a different device or use your phone to create the passkey.",
-    );
+    throw new Error(t("errNonResident"));
   }
   return result;
 }
@@ -181,10 +179,7 @@ async function webauthnGet(
   // Defense in depth: even with userVerification "required" requested, only
   // trust an assertion whose authenticator actually set the UV flag.
   if (!authenticatorUserVerified(new Uint8Array(result.authenticatorData))) {
-    throw new Error(
-      "Your device signed in without verifying it's you. Please set up Face ID, a fingerprint, " +
-        "a screen lock, or a security-key PIN, then try again.",
-    );
+    throw new Error(t("errNotVerified"));
   }
   return result;
 }
@@ -231,10 +226,7 @@ async function resolveCredential(assertion: WebauthnGetResult): Promise<Resolved
     }
   }
 
-  throw new Error(
-    "This passkey is not registered in the passkeys registry (or the registered keys " +
-      "do not match its signature). Create it again on the original device or register it first.",
-  );
+  throw new Error(t("errNotRegistered"));
 }
 
 function toActiveCredential(resolved: ResolvedCredential): ActiveCredential {
@@ -263,9 +255,9 @@ async function registerWithUi(rawIdB64: string, publicKey: string): Promise<void
       const message = e instanceof Error ? e.message : String(e);
       const retry = await ui.promptRetryRegistration(message);
       if (!retry) {
-        throw new Error(`Passkey registration cancelled: ${message}`);
+        throw new Error(t("errRegistrationCancelled", { message }));
       }
-      await ui.showProgress("Registering your passkey", "Publishing its public key on NEAR…");
+      await ui.showProgress(t("registeringTitle"), t("registeringSubtitle"));
     }
   }
 }
@@ -291,9 +283,9 @@ async function createNewPasskey(): Promise<ActiveCredential> {
   // ask for a username/email label so the accounts stay distinguishable.
   const isFirstAccount = Object.keys(await storage.getKnownCredentials()).length === 0;
   const name = isFirstAccount ? DEFAULT_PASSKEY_LABEL : await ui.promptPasskeyLabel();
-  await ui.showProgress("Create your passkey", "Confirm with your device when it asks");
+  await ui.showProgress(t("createPasskeyTitle"), t("createPasskeySubtitle"));
   const created = await webauthnCreate(name);
-  await ui.showProgress("Registering your passkey", "Publishing its public key on NEAR…");
+  await ui.showProgress(t("registeringTitle"), t("registeringSubtitle"));
 
   // The passkey now exists in the user's device keychain. If we cannot read
   // its public key (an unsupported key type slipped through, or a malformed
@@ -303,11 +295,7 @@ async function createNewPasskey(): Promise<ActiveCredential> {
   try {
     publicKey = extractCredentialPublicKey(created);
   } catch {
-    throw new Error(
-      "Your device created a passkey this wallet can't use. Please open your device's " +
-        "password / passkey settings, delete the passkey you just created for this site, " +
-        "then try again on a different device.",
-    );
+    throw new Error(t("errOrphan"));
   }
   const publicKeyStr = publicKeyToString(publicKey);
   const rawIdB64 = rawIdToB64(created.rawId);
@@ -340,15 +328,15 @@ async function createNewPasskey(): Promise<ActiveCredential> {
 }
 
 async function useExistingPasskey(): Promise<ActiveCredential> {
-  await ui.showProgress("Use your passkey", "Pick a passkey and confirm with your device");
+  await ui.showProgress(t("usePasskeyTitle"), t("usePasskeySubtitle"));
   const assertion = await webauthnGet(new Uint8Array(randomBytes(32)));
-  await ui.showProgress("Looking up your account", "Resolving your passkey on NEAR…");
+  await ui.showProgress(t("lookingUpTitle"), t("lookingUpSubtitle"));
   let resolved: ResolvedCredential;
   try {
     resolved = await resolveCredential(assertion);
   } catch (e) {
     await ui.showErrorDialog(
-      "Passkey not registered",
+      t("passkeyNotRegisteredTitle"),
       e instanceof Error ? e.message : String(e),
     );
     throw e;
@@ -362,7 +350,7 @@ async function useExistingPasskey(): Promise<ActiveCredential> {
 
 async function requireActive(): Promise<ActiveCredential> {
   const active = await storage.getActiveCredential();
-  if (!active) throw new Error("Wallet not signed in");
+  if (!active) throw new Error(t("errNotSignedIn"));
   return active;
 }
 
@@ -373,7 +361,7 @@ async function signRequestMessage(
   const msg = buildRequestMessage(active.accountId, await storage.nextNonce(), request);
   // The button tap supplies the transient user activation iOS/Safari require,
   // and the ceremony runs straight off the click with no network in between.
-  await ui.promptConfirm("Approve transaction", "Confirm with your device to approve.", "Approve");
+  await ui.promptConfirm(t("approveTxTitle"), t("approveTxSubtitle"), t("approveBtn"));
   try {
     const assertion = await webauthnGet(requestMessageHash(msg), active.rawId);
     return { msg, proof: buildProof(active.curve, assertion) };
@@ -481,7 +469,7 @@ const wallet = {
       params.nonce instanceof Uint8Array ? params.nonce : new Uint8Array(params.nonce);
     const challenge = nep413PayloadHash(params.message, params.recipient, nonce);
     // Fresh user activation for the ceremony (dApp-initiated, no prior tap).
-    await ui.promptConfirm("Confirm signature", "Confirm with your device to sign this message.", "Sign");
+    await ui.promptConfirm(t("signMsgTitle"), t("signMsgSubtitle"), t("signBtn"));
     try {
       const assertion = await webauthnGet(challenge, active.rawId);
       const proof = buildProof(active.curve, assertion);
@@ -570,9 +558,9 @@ const wallet = {
     if (signedIn) {
       try {
         // Fresh user activation for the ceremony (dApp-initiated sign-in).
-        await ui.promptConfirm("Confirm sign-in", "Confirm with your device to sign in.", "Sign in");
+        await ui.promptConfirm(t("confirmSignInTitle"), t("confirmSignInSubtitle"), t("confirmSignInBtn"));
         const assertion = await webauthnGet(challenge, signedIn.rawId);
-        await ui.showProgress("Signing you in", "Finalizing your account on NEAR…");
+        await ui.showProgress(t("signingInTitle"), t("signingInFinalizeSubtitle"));
         await ensureAccountOnChain(signedIn);
         return {
           accountId: signedIn.accountId,
@@ -593,9 +581,9 @@ const wallet = {
       if (choice === "create") {
         const active = await createNewPasskey();
         // Fresh activation after the (network-bound) registration step.
-        await ui.promptConfirm("Confirm sign-in", "Confirm once more with your device.", "Sign in");
+        await ui.promptConfirm(t("confirmSignInTitle"), t("confirmSignInAgainSubtitle"), t("confirmSignInBtn"));
         const assertion = await webauthnGet(challenge, active.rawId);
-        await ui.showProgress("Signing you in", "Setting up your account on NEAR…");
+        await ui.showProgress(t("signingInTitle"), t("signingInSetupSubtitle"));
         await ensureAccountOnChain(active);
         return {
           accountId: active.accountId,
@@ -607,15 +595,15 @@ const wallet = {
       // curve-independent), then resolve the credential from the assertion
       // itself (local cache first, registry on miss, verified against the
       // signature).
-      await ui.showProgress("Use your passkey", "Pick a passkey and confirm with your device");
+      await ui.showProgress(t("usePasskeyTitle"), t("usePasskeySubtitle"));
       const assertion = await webauthnGet(challenge);
-      await ui.showProgress("Looking up your account", "Resolving your passkey on NEAR…");
+      await ui.showProgress(t("lookingUpTitle"), t("lookingUpSubtitle"));
       let resolved: ResolvedCredential;
       try {
         resolved = await resolveCredential(assertion);
       } catch (e) {
         await ui.showErrorDialog(
-          "Passkey not registered",
+          t("passkeyNotRegisteredTitle"),
           e instanceof Error ? e.message : String(e),
         );
         throw e;
@@ -623,7 +611,7 @@ const wallet = {
 
       const active = toActiveCredential(resolved);
       await storage.setActiveCredential(active);
-      await ui.showProgress("Signing you in", "Setting up your account on NEAR…");
+      await ui.showProgress(t("signingInTitle"), t("signingInSetupSubtitle"));
       try {
         await ensureAccountOnChain(active);
       } catch (e) {

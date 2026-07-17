@@ -28,6 +28,9 @@ executor implementing Passkey (WebAuthn) wallets:
   never signs on mere user-presence (a bare security-key touch).
 - WebAuthn failures are mapped to short, non-technical, actionable messages
   (`src/errors.ts`) instead of raw `DOMException` codes.
+- **Web2-familiar flow** ("Sign up" / "Sign in", zero-friction first sign-up)
+  and full **i18n** (en/zh/hi/es/fr). Rationale and rules:
+  [`docs/UX_DECISIONS.md`](docs/UX_DECISIONS.md).
 - `rawId -> publicKey` recovery goes through the open on-chain registry
   `passkeys-registry.near`; every candidate key is verified locally against
   the assertion signature — only the credential's true key is accepted.
@@ -107,7 +110,8 @@ domain, which the sandboxed executor deliberately does not do.
 | `authEnvelope.ts` | NEP-641 message building (initial-state Code binding), authorization blob |
 | `protocol.ts` | raw NEAR protocol tx encoder (StateInit support) + JSON-RPC broadcast |
 | `webauthn.ts` | CBOR/COSE/SPKI key extraction, DER→raw low-S, local assertion verify, UV-flag check, proof blob |
-| `errors.ts` | WebAuthn `DOMException` → plain-language, non-technical user messages |
+| `errors.ts` | WebAuthn `DOMException` → plain-language, non-technical user messages (via `i18n`) |
+| `i18n.ts` | localized user-facing strings (en/zh/hi/es/fr), `navigator`-detected |
 | `registry.ts` | `passkeys-registry.near` get/register (retry + backoff) |
 | `relayer.ts` | sponsor-signed relaying of `w_execute_signed` / StateInit |
 | `storage.ts` | typed sandboxed-storage accessors, nonce counter |

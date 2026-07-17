@@ -1,4 +1,5 @@
 import { DEFAULT_PASSKEY_LABEL } from "./constants";
+import { t } from "./i18n";
 import { selector } from "./types";
 
 /**
@@ -64,10 +65,10 @@ export type SignInChoice = "existing" | "create";
  */
 export async function promptSignInChoice(): Promise<SignInChoice> {
   const el = await openDialog(`
-    <h1>Trezu</h1>
-    <p>No password, no seed phrase — just your device.</p>
-    <button id="pk-create">Sign up</button>
-    <button id="pk-existing" style="${SECONDARY_BUTTON_STYLE}">Sign in</button>
+    <h1>${escapeHtml(t("appTitle"))}</h1>
+    <p>${escapeHtml(t("appTagline"))}</p>
+    <button id="pk-create">${escapeHtml(t("signUp"))}</button>
+    <button id="pk-existing" style="${SECONDARY_BUTTON_STYLE}">${escapeHtml(t("signIn"))}</button>
   `);
   return new Promise<SignInChoice>((resolve, reject) => {
     el.querySelector("#pk-existing")?.addEventListener("click", () => resolve("existing"));
@@ -106,10 +107,10 @@ export async function promptConfirm(
  */
 export async function promptPasskeyLabel(): Promise<string> {
   const el = await openDialog(`
-    <h1>Add another account</h1>
-    <p>Enter a username or email to tell your accounts apart</p>
-    <input id="pk-name" style="${INPUT_STYLE}" placeholder="username or email" maxlength="64" autocomplete="off" />
-    <button id="pk-continue">Continue</button>
+    <h1>${escapeHtml(t("addAccountTitle"))}</h1>
+    <p>${escapeHtml(t("addAccountSubtitle"))}</p>
+    <input id="pk-name" style="${INPUT_STYLE}" placeholder="${escapeHtml(t("usernameOrEmailPlaceholder"))}" maxlength="64" autocomplete="off" />
+    <button id="pk-continue">${escapeHtml(t("continue"))}</button>
   `);
   return new Promise<string>((resolve) => {
     const submit = () => {
@@ -127,11 +128,11 @@ export async function promptPasskeyLabel(): Promise<string> {
 /** Registration-failure dialog. Resolves true for Retry, false for Cancel. */
 export async function promptRetryRegistration(message: string): Promise<boolean> {
   const el = await openDialog(`
-    <h1>Registration failed</h1>
+    <h1>${escapeHtml(t("registrationFailedTitle"))}</h1>
     <p>${escapeHtml(message)}</p>
-    <p style="${ERROR_STYLE}">Your passkey was created but is not registered yet. Without registration it cannot be recovered on other devices.</p>
-    <button id="pk-retry">Retry</button>
-    <button id="pk-cancel" style="${SECONDARY_BUTTON_STYLE}">Cancel</button>
+    <p style="${ERROR_STYLE}">${escapeHtml(t("registrationNotRegisteredWarning"))}</p>
+    <button id="pk-retry">${escapeHtml(t("retry"))}</button>
+    <button id="pk-cancel" style="${SECONDARY_BUTTON_STYLE}">${escapeHtml(t("cancel"))}</button>
   `);
   return new Promise<boolean>((resolve) => {
     el.querySelector("#pk-retry")?.addEventListener("click", () => resolve(true));
@@ -147,7 +148,7 @@ export async function showErrorDialog(title: string, message: string): Promise<v
   const el = await openDialog(`
     <h1>${escapeHtml(title)}</h1>
     <p style="${ERROR_STYLE}">${escapeHtml(message)}</p>
-    <button id="pk-close">Close</button>
+    <button id="pk-close">${escapeHtml(t("close"))}</button>
   `);
   return new Promise<void>((resolve) => {
     el.querySelector("#pk-close")?.addEventListener("click", async () => {
