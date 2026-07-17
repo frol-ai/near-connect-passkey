@@ -45,6 +45,15 @@ export const REQUEST_DOMAIN = "NEAR_WALLET_CONTRACT/V1";
 /** Chain id bound into every signed message. This executor is mainnet-only. */
 export const CHAIN_ID = "mainnet";
 
+/**
+ * Fallback RPC endpoints, used when the host dApp configured no
+ * `providers` on its NearConnector (the sandbox then injects an empty list).
+ */
+export const DEFAULT_RPC_URLS = [
+  "https://free.rpc.fastnear.com",
+  "https://rpc.mainnet.near.org",
+] as const;
+
 /** Storage keys (selector sandboxed storage). */
 export const STORAGE_ACTIVE = "passkey:v1";
 export const STORAGE_KNOWN = "passkey:known";

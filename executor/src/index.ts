@@ -4,7 +4,7 @@ import { sha256 } from "@noble/hashes/sha2.js";
 import { base64 } from "@scure/base";
 
 import { BorshWriter } from "./borsh";
-import { CHAIN_ID } from "./constants";
+import { CHAIN_ID, DEFAULT_RPC_URLS } from "./constants";
 import {
   DEFAULT_WALLET_CONFIG,
   buildAuthMessage,
@@ -60,8 +60,15 @@ import { authMessageHash } from "./walletContract";
 
 let cachedClient: Client | null = null;
 
+function rpcUrls(): string[] {
+  // dApps often construct NearConnector without custom `providers`, in
+  // which case the sandbox injects an EMPTY list — fall back to defaults.
+  const urls = selector().providers.mainnet;
+  return urls && urls.length > 0 ? urls : [...DEFAULT_RPC_URLS];
+}
+
 function rpcUrl(): string {
-  const url = selector().providers.mainnet[0];
+  const url = rpcUrls()[0];
   if (!url) throw new Error("no mainnet RPC provider configured");
   return url;
 }
@@ -70,7 +77,7 @@ function getClient(): Client {
   if (!cachedClient) {
     cachedClient = createClient({
       transport: {
-        rpcEndpoints: { regular: selector().providers.mainnet.map((url) => ({ url })) },
+        rpcEndpoints: { regular: rpcUrls().map((url) => ({ url })) },
       },
     });
   }
@@ -202,6 +209,7 @@ async function registerWithUi(rawIdB64: string, publicKey: string): Promise<void
       if (!retry) {
         throw new Error(`Passkey registration cancelled: ${message}`);
       }
+      await ui.showProgress("Registering your passkey", "Publishing its public key on NEAR…");
     }
   }
 }
@@ -222,7 +230,9 @@ async function retryPendingRegistration(): Promise<void> {
 
 async function createNewPasskey(): Promise<ActiveCredential> {
   const name = await ui.promptPasskeyName();
+  await ui.showProgress("Create your passkey", "Follow your device's Face ID / Touch ID prompt");
   const created = await webauthnCreate(name);
+  await ui.showProgress("Registering your passkey", "Publishing its public key on NEAR…");
   const publicKey = extractCredentialPublicKey(created);
   const publicKeyStr = publicKeyToString(publicKey);
   const rawIdB64 = rawIdToB64(created.rawId);
@@ -255,7 +265,9 @@ async function createNewPasskey(): Promise<ActiveCredential> {
 }
 
 async function useExistingPasskey(): Promise<ActiveCredential> {
+  await ui.showProgress("Use your passkey", "Pick a passkey and confirm with Face ID / Touch ID");
   const assertion = await webauthnGet(new Uint8Array(randomBytes(32)));
+  await ui.showProgress("Looking up your account", "Resolving your passkey on NEAR…");
   let resolved: ResolvedCredential;
   try {
     resolved = await resolveCredential(assertion);
@@ -284,8 +296,13 @@ async function signRequestMessage(
   request: RequestJson,
 ): Promise<{ msg: RequestMessageJson; proof: string }> {
   const msg = buildRequestMessage(active.accountId, await storage.nextNonce(), request);
-  const assertion = await webauthnGet(requestMessageHash(msg), active.rawId);
-  return { msg, proof: buildProof(active.curve, assertion) };
+  await ui.showProgress("Approve transaction", "Confirm with Face ID / Touch ID");
+  try {
+    const assertion = await webauthnGet(requestMessageHash(msg), active.rawId);
+    return { msg, proof: buildProof(active.curve, assertion) };
+  } finally {
+    await ui.closeUi();
+  }
 }
 
 async function executeRequest(
@@ -346,8 +363,12 @@ const wallet = {
     if (existing) return [toAccount(existing)];
 
     const choice = await ui.promptSignInChoice();
-    const active = choice === "create" ? await createNewPasskey() : await useExistingPasskey();
-    return [toAccount(active)];
+    try {
+      const active = choice === "create" ? await createNewPasskey() : await useExistingPasskey();
+      return [toAccount(active)];
+    } finally {
+      await ui.closeUi();
+    }
   },
 
   async signInAndSignMessage(
@@ -459,39 +480,79 @@ const wallet = {
     const challenge = authMessageHash(message);
 
     if (signedIn) {
-      await ensureAccountOnChain(signedIn);
-      const assertion = await webauthnGet(challenge, signedIn.rawId);
-      return {
-        accountId: signedIn.accountId,
-        authorization: buildAuthorizationBlob(message, buildProof(signedIn.curve, assertion)),
-      };
+      try {
+        await ui.showProgress("Confirm sign-in", "Confirm with Face ID / Touch ID");
+        const assertion = await webauthnGet(challenge, signedIn.rawId);
+        await ui.showProgress("Signing you in", "Finalizing your account on NEAR…");
+        await ensureAccountOnChain(signedIn);
+        return {
+          accountId: signedIn.accountId,
+          authorization: buildAuthorizationBlob(message, buildProof(signedIn.curve, assertion)),
+        };
+      } finally {
+        await ui.closeUi();
+      }
     }
 
-    // Unknown credential: one discovery ceremony (the envelope is
-    // curve-independent), then resolve the credential from the assertion
-    // itself (local cache first, registry on miss, verified against the
-    // signature).
-    const assertion = await webauthnGet(challenge);
-    const resolved = await resolveCredential(assertion);
+    // No active credential: guide the user from the very first moment —
+    // create a new account or pick an existing passkey, with visible
+    // progress for every step after that.
+    await retryPendingRegistration();
+    const choice = await ui.promptSignInChoice();
 
-    const active = toActiveCredential(resolved);
-    await storage.setActiveCredential(active);
     try {
-      await ensureAccountOnChain(active);
-    } catch (e) {
-      // Roll back only freshly-established local state (verified `passkey:known`
-      // write-through stays — it is true regardless of relay hiccups).
-      await storage.clearActiveCredential();
-      throw e;
-    }
+      if (choice === "create") {
+        const active = await createNewPasskey();
+        await ui.showProgress("Confirm sign-in", "Confirm once more with Face ID / Touch ID");
+        const assertion = await webauthnGet(challenge, active.rawId);
+        await ui.showProgress("Signing you in", "Setting up your account on NEAR…");
+        await ensureAccountOnChain(active);
+        return {
+          accountId: active.accountId,
+          authorization: buildAuthorizationBlob(message, buildProof(active.curve, assertion)),
+        };
+      }
 
-    return {
-      accountId: resolved.accountId,
-      authorization: buildAuthorizationBlob(
-        message,
-        buildProof(resolved.publicKey.curve, assertion),
-      ),
-    };
+      // Existing passkey: one discovery ceremony (the envelope is
+      // curve-independent), then resolve the credential from the assertion
+      // itself (local cache first, registry on miss, verified against the
+      // signature).
+      await ui.showProgress("Use your passkey", "Pick a passkey and confirm with Face ID / Touch ID");
+      const assertion = await webauthnGet(challenge);
+      await ui.showProgress("Looking up your account", "Resolving your passkey on NEAR…");
+      let resolved: ResolvedCredential;
+      try {
+        resolved = await resolveCredential(assertion);
+      } catch (e) {
+        await ui.showErrorDialog(
+          "Passkey not registered",
+          e instanceof Error ? e.message : String(e),
+        );
+        throw e;
+      }
+
+      const active = toActiveCredential(resolved);
+      await storage.setActiveCredential(active);
+      await ui.showProgress("Signing you in", "Setting up your account on NEAR…");
+      try {
+        await ensureAccountOnChain(active);
+      } catch (e) {
+        // Roll back only freshly-established local state (verified `passkey:known`
+        // write-through stays — it is true regardless of relay hiccups).
+        await storage.clearActiveCredential();
+        throw e;
+      }
+
+      return {
+        accountId: resolved.accountId,
+        authorization: buildAuthorizationBlob(
+          message,
+          buildProof(resolved.publicKey.curve, assertion),
+        ),
+      };
+    } finally {
+      await ui.closeUi();
+    }
   },
 };
 

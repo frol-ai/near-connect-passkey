@@ -10,6 +10,10 @@ const INPUT_STYLE =
   "margin-top:16px;padding:12px;border-radius:12px;border:1px solid #444;" +
   "background:#131313;color:#fff;font-size:14px;width:240px;outline:none;text-align:center;";
 const ERROR_STYLE = "color:#ff8a80;font-size:14px;margin-top:8px;";
+const SPINNER_HTML =
+  '<div style="margin:20px auto 4px;width:28px;height:28px;border:3px solid #333;' +
+  'border-top-color:#fff;border-radius:50%;animation:pk-spin 0.8s linear infinite;"></div>' +
+  "<style>@keyframes pk-spin{to{transform:rotate(360deg)}}</style>";
 
 function root(): HTMLElement {
   const el = document.getElementById("root");
@@ -32,25 +36,38 @@ async function closeDialog(): Promise<void> {
   await selector().ui.hideIframe();
 }
 
+/** Close whatever screen is currently shown. Safe to call repeatedly. */
+export async function closeUi(): Promise<void> {
+  await closeDialog();
+}
+
+/**
+ * Spinner screen for long-running steps (WebAuthn ceremony, registry
+ * round-trips, account setup). Replaces the current screen and stays up
+ * until the next screen or [`closeUi()`] — the user is never left staring
+ * at nothing while the flow progresses.
+ */
+export async function showProgress(title: string, subtitle: string): Promise<void> {
+  await openDialog(`
+    <h1>${escapeHtml(title)}</h1>
+    ${SPINNER_HTML}
+    <p>${escapeHtml(subtitle)}</p>
+  `);
+}
+
 export type SignInChoice = "existing" | "create";
 
 /** Sign-in entry dialog: use an existing passkey or create a new one. */
 export async function promptSignInChoice(): Promise<SignInChoice> {
   const el = await openDialog(`
     <h1>Passkey Wallet</h1>
-    <p>Sign in with a passkey — no seed phrase, no extension</p>
-    <button id="pk-existing">Use existing passkey</button>
-    <button id="pk-create" style="${SECONDARY_BUTTON_STYLE}">Create new passkey</button>
+    <p>Sign in with Face ID / Touch ID — no seed phrase, no extension</p>
+    <button id="pk-create">Create new account</button>
+    <button id="pk-existing" style="${SECONDARY_BUTTON_STYLE}">Use existing passkey</button>
   `);
   return new Promise<SignInChoice>((resolve, reject) => {
-    el.querySelector("#pk-existing")?.addEventListener("click", async () => {
-      await closeDialog();
-      resolve("existing");
-    });
-    el.querySelector("#pk-create")?.addEventListener("click", async () => {
-      await closeDialog();
-      resolve("create");
-    });
+    el.querySelector("#pk-existing")?.addEventListener("click", () => resolve("existing"));
+    el.querySelector("#pk-create")?.addEventListener("click", () => resolve("create"));
     // no cancel affordance beyond host-side iframe close; keep reject unused
     void reject;
   });
@@ -65,11 +82,9 @@ export async function promptPasskeyName(): Promise<string> {
     <button id="pk-continue">Create passkey</button>
   `);
   return new Promise<string>((resolve) => {
-    const submit = async () => {
+    const submit = () => {
       const input = el.querySelector<HTMLInputElement>("#pk-name");
-      const name = input?.value.trim() || "NEAR Passkey";
-      await closeDialog();
-      resolve(name);
+      resolve(input?.value.trim() || "NEAR Passkey");
     };
     el.querySelector("#pk-continue")?.addEventListener("click", submit);
     el.querySelector<HTMLInputElement>("#pk-name")?.addEventListener("keydown", (e) => {
@@ -89,10 +104,7 @@ export async function promptRetryRegistration(message: string): Promise<boolean>
     <button id="pk-cancel" style="${SECONDARY_BUTTON_STYLE}">Cancel</button>
   `);
   return new Promise<boolean>((resolve) => {
-    el.querySelector("#pk-retry")?.addEventListener("click", async () => {
-      await closeDialog();
-      resolve(true);
-    });
+    el.querySelector("#pk-retry")?.addEventListener("click", () => resolve(true));
     el.querySelector("#pk-cancel")?.addEventListener("click", async () => {
       await closeDialog();
       resolve(false);
