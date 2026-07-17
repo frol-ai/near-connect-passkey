@@ -11,7 +11,7 @@ import {
   buildAuthorizationBlob,
 } from "./authEnvelope";
 import { registryGet, registryRegister } from "./registry";
-import { relayExecuteSigned, relayStateInit } from "./relayer";
+import { buildSignedDelegateAction, relayExecuteSigned, relayStateInit } from "./relayer";
 import type { PasskeyPublicKey } from "./stateInit";
 import {
   deriveAccountId,
@@ -456,14 +456,20 @@ const wallet = {
     };
     const { msg, proof } = await signRequestMessage(active, request);
 
-    // Wallet-contract variant of SignDelegateActionsResponse:
-    // base64(JSON { msg, proof, stateInit: base64(borsh(StateInit)) | null }).
-    // The relayer attaches the StateInit action iff the account is missing.
-    const stateInit = base64.encode(
-      serializeDefaultStateInit(publicKeyFromString(active.publicKey)),
+    // The dApp relays this via nt-be, which replays the inner w_execute_signed
+    // as the sponsor and cannot create the account — so it must already exist
+    // (the delegate action carries no StateInit).
+    await ensureAccountOnChain(active);
+
+    // Standard borsh SignedDelegateAction (NEP-461) wrapping a single
+    // w_execute_signed(msg, proof) FunctionCall on the wallet account.
+    const signedDelegateAction = await buildSignedDelegateAction(
+      getClient(),
+      active.accountId,
+      msg,
+      proof,
     );
-    const blob = JSON.stringify({ msg, proof, stateInit });
-    return { signedDelegateActions: [base64.encode(new TextEncoder().encode(blob))] };
+    return { signedDelegateActions: [signedDelegateAction] };
   },
 
   async resolveAuth(params: ResolveAuthParams): Promise<ResolveAuthResponse> {

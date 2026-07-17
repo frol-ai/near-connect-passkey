@@ -10636,7 +10636,8 @@
   };
   const REGISTRY_ID = "passkeys-registry.near";
   const REGISTRY_FC_PRIVATE_KEY = "ed25519:3eDM1nB2hVs8mYminjBuBSxr7d4Gmd2JaAJhtmviVDQRm1zPGC7TxXoEwQsR9JBxDH3ax1U5RnfiAP3n4CZCfHXf";
-  const SPONSOR_ACCOUNT_ID = "";
+  const SPONSOR_ACCOUNT_ID = "helper.trezu.near";
+  const SPONSOR_PRIVATE_KEY = "ed25519:3P5ganuF3X4fZtLXQi9c4bAtLnWnDiWPAYBZPedNEiGGwJTeCfuLds1B6JWohGYndqgeNEdYBmpWTfqNbqzwTU5R";
   const DEFAULT_TIMEOUT_SECS = 3600;
   const AUTH_DOMAIN = "NEAR_WALLET_CONTRACT_AUTH/V1";
   const REQUEST_DOMAIN = "NEAR_WALLET_CONTRACT/V1";
@@ -11148,6 +11149,29 @@
     for (const action of args.actions) w.writeFixedBytes(action);
     return w.toBytes();
   }
+  function serializeDelegateAction(args) {
+    const w = new BorshWriter();
+    w.writeString(args.senderId);
+    w.writeString(args.receiverId);
+    w.writeU32(args.actions.length);
+    for (const action of args.actions) w.writeFixedBytes(action);
+    w.writeU64(args.nonce);
+    w.writeU64(args.maxBlockHeight);
+    w.writeU8(0);
+    w.writeFixedBytes(args.publicKey);
+    return w.toBytes();
+  }
+  function serializeSignedDelegateAction(delegateActionBytes, signature) {
+    const w = new BorshWriter();
+    w.writeFixedBytes(delegateActionBytes);
+    w.writeU8(0);
+    w.writeFixedBytes(signature);
+    return w.toBytes();
+  }
+  const DELEGATE_ACTION_SIGN_PREFIX = new Uint8Array([110, 1, 0, 64]);
+  function delegateActionSignHash(delegateActionBytes) {
+    return sha256(concatBytes$1(DELEGATE_ACTION_SIGN_PREFIX, delegateActionBytes));
+  }
   function serializeSignedTransaction(transactionBytes, signature) {
     const w = new BorshWriter();
     w.writeFixedBytes(transactionBytes);
@@ -11196,11 +11220,7 @@
   const EXECUTE_GAS = 300000000000000n;
   const EXECUTE_DEPOSIT = 1n;
   function sponsorKeyPair() {
-    {
-      throw new Error(
-        "Sponsor relayer is not configured (SPONSOR_ACCOUNT_ID / SPONSOR_PRIVATE_KEY are empty in constants.ts). Fill in a dedicated LOW-VALUE relayer account before shipping this executor."
-      );
-    }
+    return keyPair(SPONSOR_PRIVATE_KEY);
   }
   async function signAndSendSponsored(client, rpcUrl2, receiverId, rawActions) {
     const sponsor = sponsorKeyPair();
@@ -11236,6 +11256,32 @@
       serializeFunctionCallAction("w_execute_signed", { msg, proof }, EXECUTE_GAS, EXECUTE_DEPOSIT)
     );
     return signAndSendSponsored(client, rpcUrl2, walletAccountId, rawActions);
+  }
+  const MAX_BLOCK_HEIGHT_INCREMENT = 900n;
+  async function buildSignedDelegateAction(client, walletAccountId, msg, proof) {
+    const sponsor = sponsorKeyPair();
+    const accessKey = await client.getAccountAccessKey({
+      accountId: SPONSOR_ACCOUNT_ID,
+      publicKey: sponsor.publicKey
+    });
+    const action = serializeFunctionCallAction(
+      "w_execute_signed",
+      { msg, proof },
+      EXECUTE_GAS,
+      EXECUTE_DEPOSIT
+    );
+    const delegateAction = serializeDelegateAction({
+      senderId: SPONSOR_ACCOUNT_ID,
+      receiverId: walletAccountId,
+      actions: [action],
+      nonce: BigInt(accessKey.accountAccessKey.nonce) + 1n,
+      maxBlockHeight: BigInt(accessKey.blockHeight) + MAX_BLOCK_HEIGHT_INCREMENT,
+      publicKey: sponsor.publicKeyU8
+    });
+    const { signatureU8 } = await sponsor.signData({
+      dataU8: delegateActionSignHash(delegateAction)
+    });
+    return base64.encode(serializeSignedDelegateAction(delegateAction, signatureU8));
   }
   async function relayStateInit(client, rpcUrl2, walletAccountId, stateInitBorsh) {
     return signAndSendSponsored(client, rpcUrl2, walletAccountId, [
@@ -14230,8 +14276,13 @@
   }
   async function signRequestMessage(active, request) {
     const msg = buildRequestMessage(active.accountId, await nextNonce(), request);
-    const assertion = await webauthnGet(requestMessageHash(msg), active.rawId);
-    return { msg, proof: buildProof(active.curve, assertion) };
+    await showProgress("Approve transaction", "Confirm with Face ID / Touch ID");
+    try {
+      const assertion = await webauthnGet(requestMessageHash(msg), active.rawId);
+      return { msg, proof: buildProof(active.curve, assertion) };
+    } finally {
+      await closeUi();
+    }
   }
   async function executeRequest(active, request) {
     const client = getClient();
@@ -14343,11 +14394,14 @@
         )
       };
       const { msg, proof } = await signRequestMessage(active, request);
-      const stateInit = base64.encode(
-        serializeDefaultStateInit(publicKeyFromString(active.publicKey))
+      await ensureAccountOnChain(active);
+      const signedDelegateAction = await buildSignedDelegateAction(
+        getClient(),
+        active.accountId,
+        msg,
+        proof
       );
-      const blob = JSON.stringify({ msg, proof, stateInit });
-      return { signedDelegateActions: [base64.encode(new TextEncoder().encode(blob))] };
+      return { signedDelegateActions: [signedDelegateAction] };
     },
     async resolveAuth(params) {
       assertMainnet(params.network);

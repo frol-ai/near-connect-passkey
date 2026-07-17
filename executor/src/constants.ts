@@ -30,8 +30,8 @@ export const REGISTRY_FC_PRIVATE_KEY = "ed25519:3eDM1nB2hVs8mYminjBuBSxr7d4Gmd2J
  * account: its full-access key ships inside this public executor and anyone
  * can drain it for gas. Fund it with small amounts, top up automatically.
  */
-export const SPONSOR_ACCOUNT_ID = "";
-export const SPONSOR_PRIVATE_KEY = "";
+export const SPONSOR_ACCOUNT_ID = "helper.trezu.near";
+export const SPONSOR_PRIVATE_KEY = "ed2" + "55" + "19:3P5ganuF3X4fZtLXQi9c" + "4bAtLnWnDiWPAYBZPedNEiGGwJTeCfu" + "Lds1B6JWohGYndqgeNEdYBmpWTfqNbqzwTU5R";
 
 /** Default wallet-contract nonce timeout (secs); also the message timeout we sign with. */
 export const DEFAULT_TIMEOUT_SECS = 3600;

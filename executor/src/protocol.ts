@@ -1,7 +1,7 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import { base64 } from "@scure/base";
 
-import { BorshWriter } from "./borsh";
+import { BorshWriter, concatBytes } from "./borsh";
 
 /**
  * Minimal raw NEAR protocol transaction encoder.
@@ -69,6 +69,58 @@ export function serializeTransaction(args: {
   w.writeU32(args.actions.length);
   for (const action of args.actions) w.writeFixedBytes(action);
   return w.toBytes();
+}
+
+/**
+ * DelegateAction (NEP-461) { sender_id, receiver_id, actions:
+ * Vec<NonDelegateAction>, nonce: u64, max_block_height: u64, public_key }.
+ *
+ * A `NonDelegateAction` borsh-serializes byte-for-byte as its inner `Action`
+ * (nearcore only customizes *deserialization* to forbid a nested Delegate), so
+ * the pre-serialized `Action` bytes are written verbatim.
+ */
+export function serializeDelegateAction(args: {
+  senderId: string;
+  receiverId: string;
+  /** pre-serialized actions */
+  actions: Uint8Array[];
+  nonce: bigint;
+  maxBlockHeight: bigint;
+  /** raw 32-byte ed25519 public key */
+  publicKey: Uint8Array;
+}): Uint8Array {
+  const w = new BorshWriter();
+  w.writeString(args.senderId);
+  w.writeString(args.receiverId);
+  w.writeU32(args.actions.length);
+  for (const action of args.actions) w.writeFixedBytes(action);
+  w.writeU64(args.nonce);
+  w.writeU64(args.maxBlockHeight);
+  w.writeU8(0); // PublicKey::ED25519
+  w.writeFixedBytes(args.publicKey);
+  return w.toBytes();
+}
+
+/** SignedDelegateAction { delegate_action, signature (ed25519) }. */
+export function serializeSignedDelegateAction(
+  delegateActionBytes: Uint8Array,
+  signature: Uint8Array,
+): Uint8Array {
+  const w = new BorshWriter();
+  w.writeFixedBytes(delegateActionBytes);
+  w.writeU8(0); // Signature::ED25519
+  w.writeFixedBytes(signature);
+  return w.toBytes();
+}
+
+// NEP-461 signable discriminant for DelegateAction: (1 << 30) + 366 as u32-LE.
+// Prepended before hashing so a signed delegate can never collide with a real
+// transaction. Mirrors near-connect-ledger's NEP366_PREFIX.
+const DELEGATE_ACTION_SIGN_PREFIX = new Uint8Array([0x6e, 0x01, 0x00, 0x40]);
+
+/** NEAR signs `sha256(DELEGATE_ACTION_SIGN_PREFIX || borsh(DelegateAction))`. */
+export function delegateActionSignHash(delegateActionBytes: Uint8Array): Uint8Array {
+  return sha256(concatBytes(DELEGATE_ACTION_SIGN_PREFIX, delegateActionBytes));
 }
 
 /** SignedTransaction { transaction, signature (ed25519) }. */

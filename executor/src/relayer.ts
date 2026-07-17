@@ -1,13 +1,16 @@
 import type { Client } from "near-api-ts";
 import { keyPair } from "near-api-ts";
-import { base58 } from "@scure/base";
+import { base58, base64 } from "@scure/base";
 
 import { SPONSOR_ACCOUNT_ID, SPONSOR_PRIVATE_KEY } from "./constants";
 import {
   assertOutcomeSuccess,
+  delegateActionSignHash,
   sendRawTransaction,
+  serializeDelegateAction,
   serializeDeterministicStateInitAction,
   serializeFunctionCallAction,
+  serializeSignedDelegateAction,
   serializeSignedTransaction,
   serializeTransaction,
   transactionHash,
@@ -83,6 +86,59 @@ export async function relayExecuteSigned(
     serializeFunctionCallAction("w_execute_signed", { msg, proof }, EXECUTE_GAS, EXECUTE_DEPOSIT),
   );
   return signAndSendSponsored(client, rpcUrl, walletAccountId, rawActions);
+}
+
+// Delegate-action validity window (blocks past the signing block). Copied from
+// near-connect-ledger's MAX_BLOCK_HEIGHT_INCREMENT (~15 minutes).
+const MAX_BLOCK_HEIGHT_INCREMENT = 900n;
+
+/**
+ * Build a standard borsh `SignedDelegateAction` (NEP-461) whose sole action is
+ * `w_execute_signed(msg, proof)` on the user's wallet account, returned as
+ * base64 for a dApp relayer (e.g. Trezu's nt-be) to submit.
+ *
+ * Signed exactly like near-connect-ledger's `signDelegateActions`: build the
+ * borsh `DelegateAction`, hash `sha256(NEP-366 prefix || bytes)`, ed25519-sign,
+ * append `signature`. Passkey wallet accounts hold no NEAR access key, so the
+ * *sponsor* account is the delegate `sender` and signer — the delegate is a
+ * genuine, relayable meta-transaction (the user's WebAuthn authorization is the
+ * `proof` carried inside `w_execute_signed`).
+ *
+ * The deterministic wallet account MUST already exist on-chain: the delegate
+ * action carries no `DeterministicStateInit` (the relayer only accepts
+ * `w_execute_signed` actions) and the sponsor cannot create it here.
+ */
+export async function buildSignedDelegateAction(
+  client: Client,
+  walletAccountId: string,
+  msg: RequestMessageJson,
+  proof: string,
+): Promise<string> {
+  const sponsor = sponsorKeyPair();
+  const accessKey = await client.getAccountAccessKey({
+    accountId: SPONSOR_ACCOUNT_ID,
+    publicKey: sponsor.publicKey,
+  });
+
+  const action = serializeFunctionCallAction(
+    "w_execute_signed",
+    { msg, proof },
+    EXECUTE_GAS,
+    EXECUTE_DEPOSIT,
+  );
+  const delegateAction = serializeDelegateAction({
+    senderId: SPONSOR_ACCOUNT_ID,
+    receiverId: walletAccountId,
+    actions: [action],
+    nonce: BigInt(accessKey.accountAccessKey.nonce) + 1n,
+    maxBlockHeight: BigInt(accessKey.blockHeight) + MAX_BLOCK_HEIGHT_INCREMENT,
+    publicKey: sponsor.publicKeyU8,
+  });
+
+  const { signatureU8 } = await sponsor.signData({
+    dataU8: delegateActionSignHash(delegateAction),
+  });
+  return base64.encode(serializeSignedDelegateAction(delegateAction, signatureU8));
 }
 
 /** Relay a StateInit-only transaction (account creation, no wallet call). */
