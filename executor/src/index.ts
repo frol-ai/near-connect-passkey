@@ -4,7 +4,7 @@ import { sha256 } from "@noble/hashes/sha2.js";
 import { base64 } from "@scure/base";
 
 import { BorshWriter } from "./borsh";
-import { CHAIN_ID, DEFAULT_RPC_URLS } from "./constants";
+import { CHAIN_ID, DEFAULT_PASSKEY_LABEL, DEFAULT_RPC_URLS } from "./constants";
 import {
   DEFAULT_WALLET_CONFIG,
   buildAuthMessage,
@@ -285,7 +285,12 @@ async function retryPendingRegistration(): Promise<void> {
 }
 
 async function createNewPasskey(): Promise<ActiveCredential> {
-  const name = await ui.promptPasskeyName();
+  // First account: no prompt at all — default the passkey label and go
+  // straight to the device ceremony (Web2-familiar, zero friction). Only when
+  // the user already has a passkey here (creating an ADDITIONAL account) do we
+  // ask for a username/email label so the accounts stay distinguishable.
+  const isFirstAccount = Object.keys(await storage.getKnownCredentials()).length === 0;
+  const name = isFirstAccount ? DEFAULT_PASSKEY_LABEL : await ui.promptPasskeyLabel();
   await ui.showProgress("Create your passkey", "Confirm with your device when it asks");
   const created = await webauthnCreate(name);
   await ui.showProgress("Registering your passkey", "Publishing its public key on NEAR…");

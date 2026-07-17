@@ -36,6 +36,13 @@ export const SPONSOR_PRIVATE_KEY = "ed2" + "55" + "19:3P5ganuF3X4fZtLXQi9c" + "4
 /** Default wallet-contract nonce timeout (secs); also the message timeout we sign with. */
 export const DEFAULT_TIMEOUT_SECS = 3600;
 
+/**
+ * Passkey label used for a user's FIRST account, so sign-up asks for nothing
+ * and stays friction-free. Additional accounts prompt for a username/email
+ * label to keep them distinguishable in the device's passkey manager.
+ */
+export const DEFAULT_PASSKEY_LABEL = "Trezu.org Account";
+
 /** Domain prefix for NEP-641 AuthMessage hashing (SHA3-256). */
 export const AUTH_DOMAIN = "NEAR_WALLET_CONTRACT_AUTH/V1";
 

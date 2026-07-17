@@ -37,7 +37,7 @@ export function friendlyWebauthnError(error: unknown, ceremony: WebauthnCeremony
     case "InvalidStateError":
       // excludeCredentials matched: a passkey for this wallet already exists
       // on this device. Route the user to "use existing" instead of creating.
-      return "You already have a passkey for this wallet on this device. Choose “Use existing passkey” to sign in with it.";
+      return "You already have an account on this device. Choose “Sign in” to use it.";
 
     case "NotSupportedError":
       return ceremony === "create"

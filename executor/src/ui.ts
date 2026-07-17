@@ -1,3 +1,4 @@
+import { DEFAULT_PASSKEY_LABEL } from "./constants";
 import { selector } from "./types";
 
 /**
@@ -57,13 +58,16 @@ export async function showProgress(title: string, subtitle: string): Promise<voi
 
 export type SignInChoice = "existing" | "create";
 
-/** Sign-in entry dialog: use an existing passkey or create a new one. */
+/**
+ * Entry dialog, in Web2-familiar terms: "Sign up" creates a new account,
+ * "Sign in" uses an existing passkey. (`create` / `existing` internally.)
+ */
 export async function promptSignInChoice(): Promise<SignInChoice> {
   const el = await openDialog(`
-    <h1>Passkey Wallet</h1>
-    <p>Sign in with your device — no seed phrase, no extension</p>
-    <button id="pk-create">Create new account</button>
-    <button id="pk-existing" style="${SECONDARY_BUTTON_STYLE}">Use existing passkey</button>
+    <h1>Trezu</h1>
+    <p>No password, no seed phrase — just your device.</p>
+    <button id="pk-create">Sign up</button>
+    <button id="pk-existing" style="${SECONDARY_BUTTON_STYLE}">Sign in</button>
   `);
   return new Promise<SignInChoice>((resolve, reject) => {
     el.querySelector("#pk-existing")?.addEventListener("click", () => resolve("existing"));
@@ -95,18 +99,22 @@ export async function promptConfirm(
   });
 }
 
-/** Name input shown before creating a new passkey. */
-export async function promptPasskeyName(): Promise<string> {
+/**
+ * Label input shown only when creating an ADDITIONAL account (the user
+ * already has a passkey here). A username or email keeps the accounts apart
+ * in the device's passkey manager. Empty falls back to the default label.
+ */
+export async function promptPasskeyLabel(): Promise<string> {
   const el = await openDialog(`
-    <h1>Name your passkey</h1>
-    <p>Shown in your device's passkey manager</p>
-    <input id="pk-name" style="${INPUT_STYLE}" placeholder="NEAR Passkey" maxlength="64" />
-    <button id="pk-continue">Create passkey</button>
+    <h1>Add another account</h1>
+    <p>Enter a username or email to tell your accounts apart</p>
+    <input id="pk-name" style="${INPUT_STYLE}" placeholder="username or email" maxlength="64" autocomplete="off" />
+    <button id="pk-continue">Continue</button>
   `);
   return new Promise<string>((resolve) => {
     const submit = () => {
       const input = el.querySelector<HTMLInputElement>("#pk-name");
-      resolve(input?.value.trim() || "NEAR Passkey");
+      resolve(input?.value.trim() || DEFAULT_PASSKEY_LABEL);
     };
     el.querySelector("#pk-continue")?.addEventListener("click", submit);
     el.querySelector<HTMLInputElement>("#pk-name")?.addEventListener("keydown", (e) => {

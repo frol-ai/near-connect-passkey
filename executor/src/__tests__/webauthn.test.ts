@@ -318,9 +318,9 @@ describe("friendly WebAuthn errors", () => {
     expect(msg).not.toMatch(/raw jargon/);
   });
 
-  it("routes a duplicate passkey to 'use existing'", () => {
+  it("routes a duplicate passkey to sign-in", () => {
     expect(friendlyWebauthnError(named("InvalidStateError"), "create")).toMatch(
-      /already have a passkey/i,
+      /already have an account.*sign in/i,
     );
   });
 
