@@ -7,7 +7,7 @@ export default defineConfig({
   build: {
     emptyOutDir: false,
     outDir: "..",
-    minify: false,
+    minify: true,
     rollupOptions: {
       input: {
         main: "./src/index.ts",

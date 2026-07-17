@@ -18,7 +18,7 @@ import {
 import type { RequestMessageJson } from "./walletContract";
 import type { FinalExecutionOutcome } from "./types";
 
-const EXECUTE_GAS = 300_000_000_000_000n; // 300 TGas
+const EXECUTE_GAS = 330_000_000_000_000n; // 330 TGas (300 TGas used to be the max possible value, but since nearcore 2.12 it was bumped to 1000 TGas, and wallet-contract usually consumes ~16 Tgas)
 const EXECUTE_DEPOSIT = 1n; // 1 yoctoNEAR (w_execute_signed is #[payable])
 
 function sponsorKeyPair() {
