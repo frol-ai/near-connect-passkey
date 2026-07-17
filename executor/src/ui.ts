@@ -27,51 +27,34 @@ const STYLES = `
 :root{
   --pk-accent:#0A84FF;
   --pk-accent-hi:#409CFF;
-  --pk-surface:rgba(30,30,32,0.72);
-  --pk-surface-solid:#1c1c1e;
   --pk-text:#f5f5f7;
-  --pk-subtle:rgba(235,235,245,0.6);
-  --pk-hairline:rgba(255,255,255,0.10);
-  --pk-secondary:rgba(120,120,128,0.28);
-  --pk-error:#ff8a80;
-  --pk-shadow:0 24px 70px rgba(0,0,0,0.55);
+  --pk-subtle:rgba(235,235,245,0.62);
+  --pk-hairline:rgba(255,255,255,0.12);
+  --pk-secondary:rgba(120,120,128,0.34);
+  --pk-error:#ff9a90;
 }
-@media (prefers-color-scheme: light){
-  :root{
-    --pk-accent:#007AFF;
-    --pk-accent-hi:#3395ff;
-    --pk-surface:rgba(255,255,255,0.72);
-    --pk-surface-solid:#ffffff;
-    --pk-text:#1d1d1f;
-    --pk-subtle:rgba(60,60,67,0.6);
-    --pk-hairline:rgba(0,0,0,0.06);
-    --pk-secondary:rgba(120,120,128,0.18);
-    --pk-error:#d70015;
-    --pk-shadow:0 24px 70px rgba(0,0,0,0.22);
-  }
-}
-#root{display:flex;align-items:center;justify-content:center;min-height:100%;box-sizing:border-box;padding:16px;}
-.pk-backdrop{
-  display:flex;align-items:center;justify-content:center;width:100%;
-  animation:pk-fade 240ms ease both;
-}
+/*
+ * The near-connect sandbox renders this executor inside its OWN modal, which
+ * is dark-only (no light/dark theming). So we deliberately do NOT draw a card
+ * of our own and do NOT follow the OS color scheme — that produced a light
+ * card floating inside their dark modal (nested-modal, mismatched-theme look).
+ * Instead our content sits transparently ON their dark surface as one modal,
+ * always styled light-on-dark. A solid dark panel is restored only when the
+ * user needs it (reduced transparency / increased contrast), below.
+ */
+#root{display:flex;align-items:center;justify-content:center;min-height:100%;box-sizing:border-box;padding:12px 18px;}
+.pk-backdrop{display:flex;align-items:center;justify-content:center;width:100%;}
 .pk-card{
-  box-sizing:border-box;width:min(90vw,340px);
-  padding:28px 24px 22px;border-radius:26px;
-  background:var(--pk-surface);
-  -webkit-backdrop-filter:blur(30px) saturate(180%);
-  backdrop-filter:blur(30px) saturate(180%);
-  border:1px solid var(--pk-hairline);
-  box-shadow:var(--pk-shadow), inset 0 1px 0 rgba(255,255,255,0.08);
+  box-sizing:border-box;width:min(92vw,296px);
+  padding:6px 2px 2px;background:transparent;border:0;box-shadow:none;
   color:var(--pk-text);
   font:400 15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,Roboto,sans-serif;
   text-align:center;
-  transform-origin:center bottom;
-  animation:pk-materialize 460ms ${SPRING} both;
+  animation:pk-rise 380ms ${SPRING} both;
   will-change:transform,opacity;
 }
 .pk-card h1{
-  margin:14px 0 6px;font-size:22px;line-height:1.15;font-weight:600;
+  margin:12px 0 6px;font-size:21px;line-height:1.15;font-weight:600;
   letter-spacing:-0.02em;color:var(--pk-text);
 }
 .pk-card p{margin:0 0 4px;font-size:15px;color:var(--pk-subtle);}
@@ -94,7 +77,7 @@ const STYLES = `
 .pk-input{
   box-sizing:border-box;display:block;width:100%;margin-top:16px;
   padding:14px 16px;border-radius:14px;border:1px solid var(--pk-hairline);
-  background:rgba(120,120,128,0.16);color:var(--pk-text);
+  background:rgba(120,120,128,0.24);color:var(--pk-text);
   font-size:16px;font-family:inherit;text-align:center;outline:none;
   transition:border-color 160ms ease, box-shadow 160ms ease;
 }
@@ -138,10 +121,9 @@ const STYLES = `
 }
 
 @keyframes pk-fade{from{opacity:0}to{opacity:1}}
-@keyframes pk-materialize{
-  0%{opacity:0;transform:translateY(14px) scale(0.94)}
-  70%{opacity:1;transform:translateY(0) scale(1.006)}
-  100%{opacity:1;transform:translateY(0) scale(1)}
+@keyframes pk-rise{
+  from{opacity:0;transform:translateY(8px)}
+  to{opacity:1;transform:translateY(0)}
 }
 @keyframes pk-rot{to{transform:rotate(360deg)}}
 @keyframes pk-draw{to{stroke-dashoffset:0}}
@@ -159,7 +141,6 @@ const STYLES = `
 }
 
 @media (prefers-reduced-motion: reduce){
-  .pk-backdrop{animation:pk-fade 160ms ease both;}
   .pk-card{animation:pk-fade 160ms ease both;}
   .pk-face,.pk-bio::before,.pk-face .pk-corners path,.pk-face .pk-features{animation:none;}
   .pk-face .pk-corners path{stroke-dashoffset:0;}
@@ -167,11 +148,16 @@ const STYLES = `
   .pk-activating .pk-face,.pk-activating .pk-face .pk-scan{animation:none;}
   .pk-btn:active{transform:none;}
 }
-@media (prefers-reduced-transparency: reduce){
-  .pk-card{background:var(--pk-surface-solid);-webkit-backdrop-filter:none;backdrop-filter:none;}
+/* Give our content its own legible dark panel only when the user opts into
+   reduced transparency or higher contrast (can't rely on the host chrome). */
+@media (prefers-reduced-transparency: reduce),(prefers-contrast: more){
+  .pk-card{
+    background:#1c1c1e;border:1px solid var(--pk-hairline);border-radius:22px;
+    padding:24px 20px;box-shadow:0 20px 60px rgba(0,0,0,0.5);
+  }
 }
 @media (prefers-contrast: more){
-  .pk-card{background:var(--pk-surface-solid);border-color:var(--pk-text);}
+  .pk-card{border-color:var(--pk-text);}
   .pk-btn.pk-secondary{border:1px solid var(--pk-text);}
 }
 `;

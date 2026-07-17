@@ -100,14 +100,21 @@ Hello / Android screen-lock sheet, not a web modal bolted on. All of it lives
 in one injected stylesheet in `ui.ts` (no runtime deps), so it renders
 identically on every host.
 
-- **Translucent material card.** `backdrop-filter: blur(30px) saturate(180%)`
-  over a semi-transparent surface, hairline border, deep soft shadow — the
-  iOS "thick material" look. Light and dark variants via
-  `prefers-color-scheme`.
-- **Materialize entrance.** Each screen scales up from `0.94` with a tiny
-  overshoot to `1.0` on the iOS spring ease `cubic-bezier(0.32, 0.72, 0, 1)`
-  (~460 ms) while fading in — the panel arrives as a physical object, not a
-  flat opacity fade.
+- **No card of our own — conform to the host modal.** The near-connect sandbox
+  already renders this executor inside its own modal, which is **dark-only**
+  (no light/dark theming). Drawing our own themed card inside it produced a
+  light card floating in their dark panel: a nested-modal, mismatched-theme
+  scene (see the pre-fix screenshots). So our content is **transparent** and
+  sits directly on their dark surface as one modal, and we **do not follow
+  `prefers-color-scheme`** — everything is styled light-on-dark to match the
+  host chrome. A solid dark panel is restored only under
+  `prefers-reduced-transparency` / `prefers-contrast`, where we can't rely on
+  the host surface for legibility. If near-connect ever ships a light theme,
+  revisit this (detect it and theme accordingly).
+- **Calm entrance.** Content fades and rises 8px on the iOS spring ease
+  `cubic-bezier(0.32, 0.72, 0, 1)` (~380 ms). Deliberately understated (no
+  scale/overshoot) because the host modal already plays its own entrance —
+  a second "materialize" on top read as double-animation jank.
 - **Biometric glyph.** A Face ID–style bracket-corner + face mark (inline
   SVG) draws its corners in, then *breathes* (slow 2.6 s scale, ~0.38 Hz —
   deliberately outside the ~0.2 Hz vestibular-trigger range) with a soft glow.
