@@ -20,8 +20,10 @@ executor implementing Passkey (WebAuthn) wallets:
   `residentKey: "required"` + legacy `requireResidentKey: true`, and rejects the
   credential when `credProps.rk === false`. A non-resident key would be
   unrecoverable (no rawId to feed `allowCredentials`, and discovery can't find
-  it). New creates pass `excludeCredentials` (from `passkey:known`) so a second
-  "create" on the same device errors instead of minting a duplicate account.
+  it). Multiple accounts per device are supported — each additional sign-up is
+  deliberate and labelled (see `docs/UX_DECISIONS.md`), so `create()` does NOT
+  set `excludeCredentials` (which would make the authenticator reject every
+  additional account with `InvalidStateError`).
 - **User verification is mandatory** — both ceremonies request
   `userVerification: "required"`, and every assertion is additionally checked
   for the UV flag in `authenticatorData` before its proof is trusted. A wallet

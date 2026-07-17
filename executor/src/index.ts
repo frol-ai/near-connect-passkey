@@ -107,17 +107,6 @@ function randomBytes(length: number): number[] {
   return Array.from(crypto.getRandomValues(new Uint8Array(length)));
 }
 
-/**
- * Discoverable (resident) credentials this device already holds for the
- * wallet — passed as `excludeCredentials` so a second "create" surfaces an
- * `InvalidStateError` (→ "use existing") instead of minting a duplicate
- * passkey and a second, fund-splitting account.
- */
-async function excludeExistingCredentials(): Promise<Array<{ id: number[]; type: "public-key" }>> {
-  const known = await storage.getKnownCredentials();
-  return Object.keys(known).map((rawIdB64) => ({ id: b64ToRawId(rawIdB64), type: "public-key" }));
-}
-
 async function webauthnCreate(name: string): Promise<WebauthnCreateResult> {
   // Resident key + user verification are BOTH required:
   // - resident (discoverable): the credential must be recoverable by
@@ -125,6 +114,11 @@ async function webauthnCreate(name: string): Promise<WebauthnCreateResult> {
   //   be permanently unreachable (no rawId to hand to allowCredentials).
   // - userVerification: a wallet must never sign on mere presence (a bare
   //   security-key touch); require biometric / PIN / screen lock.
+  //
+  // No `excludeCredentials`: the wallet intentionally supports MULTIPLE
+  // accounts per device (each additional one is a deliberate, labelled
+  // sign-up — see createNewPasskey). Excluding existing credentials would make
+  // the authenticator reject every additional account with InvalidStateError.
   let result: WebauthnCreateResult;
   try {
     result = await selector().webauthn.create({
@@ -140,7 +134,6 @@ async function webauthnCreate(name: string): Promise<WebauthnCreateResult> {
         requireResidentKey: true, // legacy L1 field; some browsers honor only this
         userVerification: "required",
       },
-      excludeCredentials: await excludeExistingCredentials(),
       extensions: { credProps: true },
       attestation: "none",
     });
