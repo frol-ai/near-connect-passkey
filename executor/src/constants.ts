@@ -8,6 +8,15 @@ export const FACTORY_IDS = {
   ed25519: "ed25519-passkey-wallet-contract.trezu.near",
 } as const;
 
+/**
+ * The canonical wallet-contract factory account ids committed into NEP-641
+ * `Code`-binding envelopes as `allowed_factory_ids`. This list MUST contain at
+ * most ONE factory per signature curve — otherwise a single signed
+ * authorization could resolve against two different accounts of the same key
+ * (cross-account replay). Here it is exactly one per curve (p256, ed25519).
+ */
+export const ALLOWED_FACTORY_IDS: readonly string[] = [FACTORY_IDS.p256, FACTORY_IDS.ed25519];
+
 /** Open on-chain registry mapping WebAuthn rawId -> public key candidates. */
 export const REGISTRY_ID = "passkeys-registry.near";
 

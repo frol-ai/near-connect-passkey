@@ -7,7 +7,8 @@ import { BorshWriter } from "./borsh";
 import { CHAIN_ID, DEFAULT_PASSKEY_LABEL, DEFAULT_RPC_URLS } from "./constants";
 import {
   DEFAULT_WALLET_CONFIG,
-  buildAuthMessage,
+  buildAuthMessageCodeBinding,
+  buildAuthMessageSignerId,
   buildAuthorizationBlob,
 } from "./authEnvelope";
 import { registryGet, registryRegister } from "./registry";
@@ -549,17 +550,13 @@ const wallet = {
   async resolveAuth(params: ResolveAuthParams): Promise<ResolveAuthResponse> {
     assertMainnet(params.network);
 
-    // The Code binding commits to the account's INITIAL state (the contract
-    // reconstructs the NEP-616 StateInit from the envelope + its stored
-    // public key and checks the derived account id), so the envelope is
-    // always built from the defaults this executor creates wallets with —
-    // it stays valid even after on-chain config mutations.
-
     const signedIn = await storage.getActiveCredential();
-    const message = buildAuthMessage({ ...params, config: DEFAULT_WALLET_CONFIG });
-    const challenge = authMessageHash(message);
 
     if (signedIn) {
+      // Account id is known — bind to it exactly (SignerId), no sibling-account
+      // ambiguity.
+      const message = buildAuthMessageSignerId({ ...params, signerId: signedIn.accountId });
+      const challenge = authMessageHash(message);
       try {
         // Fresh user activation for the ceremony (dApp-initiated sign-in).
         await ui.promptConfirm(t("confirmSignInTitle"), t("confirmSignInSubtitle"), t("confirmSignInBtn"));
@@ -584,6 +581,9 @@ const wallet = {
     try {
       if (choice === "create") {
         const active = await createNewPasskey();
+        // Account id is now known — bind to it exactly (SignerId).
+        const message = buildAuthMessageSignerId({ ...params, signerId: active.accountId });
+        const challenge = authMessageHash(message);
         // Fresh activation after the (network-bound) registration step.
         await ui.promptConfirm(t("confirmSignInTitle"), t("confirmSignInAgainSubtitle"), t("confirmSignInBtn"));
         const assertion = await webauthnGet(challenge, active.rawId);
@@ -595,10 +595,12 @@ const wallet = {
         };
       }
 
-      // Existing passkey: one discovery ceremony (the envelope is
-      // curve-independent), then resolve the credential from the assertion
-      // itself (local cache first, registry on miss, verified against the
-      // signature).
+      // Existing passkey, cold discovery: the account id is not known until the
+      // ceremony reveals the credential, so the challenge must be built before
+      // it. Use the curve-independent Code binding, which pins the accepting
+      // set to the canonical factories (one per curve) via allowed_factory_ids.
+      const message = buildAuthMessageCodeBinding({ ...params, config: DEFAULT_WALLET_CONFIG });
+      const challenge = authMessageHash(message);
       await ui.showProgress(t("usePasskeyTitle"), t("usePasskeySubtitle"), "biometric");
       const assertion = await webauthnGet(challenge);
       await ui.showProgress(t("lookingUpTitle"), t("lookingUpSubtitle"));

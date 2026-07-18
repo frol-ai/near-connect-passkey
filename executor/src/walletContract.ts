@@ -53,6 +53,12 @@ export type AuthSignerBindingJson =
   | { type: "signer_id"; signer_id: string }
   | {
       type: "code";
+      /**
+       * Canonical wallet-contract factory account ids this authorization may
+       * resolve under. MUST list at most one factory per signature curve (see
+       * the Rust `AuthSignerBinding::Code::allowed_factory_ids`).
+       */
+      allowed_factory_ids: string[];
       signature_enabled: boolean;
       subwallet_id: number;
       timeout_secs: number;
@@ -143,10 +149,13 @@ function writeAuthSignerBinding(w: BorshWriter, signer: AuthSignerBindingJson): 
     return;
   }
   w.writeU8(1);
+  // Field order MUST match the Rust `AuthSignerBinding::Code`:
+  // allowed_factory_ids, signature_enabled, subwallet_id, timeout, extensions.
+  // BTreeSet<AccountId>: sorted Vec<String>.
+  w.writeVec([...signer.allowed_factory_ids].sort(), (id) => w.writeString(id));
   w.writeBool(signer.signature_enabled);
   w.writeU32(signer.subwallet_id);
   w.writeU32(signer.timeout_secs);
-  // BTreeSet<AccountId>: sorted Vec<String>
   w.writeVec([...signer.extensions].sort(), (ext) => w.writeString(ext));
 }
 
@@ -261,6 +270,7 @@ export function authMessageToWireJson(msg: AuthMessageJson): AuthMessageJson {
       ? { type: "signer_id", signer_id: msg.signer.signer_id }
       : {
           type: "code",
+          allowed_factory_ids: [...msg.signer.allowed_factory_ids].sort(),
           signature_enabled: msg.signer.signature_enabled,
           subwallet_id: msg.signer.subwallet_id,
           timeout_secs: msg.signer.timeout_secs,

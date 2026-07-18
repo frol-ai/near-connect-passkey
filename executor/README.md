@@ -13,7 +13,11 @@ executor implementing Passkey (WebAuthn) wallets:
   under — so authorization stays a single ceremony regardless of curve.
 - Requests are signed by the passkey (WebAuthn assertion over the canonical
   message hash as challenge) and relayed via `w_execute_signed`; off-chain
-  authorization uses **NEP-641** (`resolveAuth` / `w_resolve_auth`).
+  authorization uses **NEP-641** (`resolveAuth` / `w_resolve_auth`). The
+  envelope binds to the exact account (`SignerId`) whenever the account id is
+  known, and only falls back to the curve-independent `Code` binding for the
+  cold "identify by passkey" discovery flow — where it pins the accepting set
+  to the canonical factories (one per curve) via `allowed_factory_ids`.
 - Supports both COSE algorithms: ES256 / P-256 (`p256:<base58(33B SEC-1 compressed)>`)
   and EdDSA / Ed25519 (`ed25519:<base58(32B)>`).
 - **Resident (discoverable) keys only** — `create()` requests
@@ -109,7 +113,7 @@ domain, which the sandboxed executor deliberately does not do.
 | `borsh.ts` | minimal borsh writer |
 | `walletContract.ts` | AuthMessage/RequestMessage JSON wire types, borsh encoders, SHA3-256 domain hashes, RFC-3339 codec, ConnectorAction conversion |
 | `stateInit.ts` | wallet `State` defaults, `StateInit` borsh, NEP-616 account id derivation |
-| `authEnvelope.ts` | NEP-641 message building (initial-state Code binding), authorization blob |
+| `authEnvelope.ts` | NEP-641 message building (`SignerId` when the account is known, else `Code` binding with `allowed_factory_ids`), authorization blob |
 | `protocol.ts` | raw NEAR protocol tx encoder (StateInit support) + JSON-RPC broadcast |
 | `webauthn.ts` | CBOR/COSE/SPKI key extraction, DER→raw low-S, local assertion verify, UV-flag check, proof blob |
 | `errors.ts` | WebAuthn `DOMException` → plain-language, non-technical user messages (via `i18n`) |
