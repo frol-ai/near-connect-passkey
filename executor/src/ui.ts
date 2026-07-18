@@ -158,18 +158,6 @@ const STYLES = `
   .pk-activating .pk-face,.pk-activating .pk-face .pk-scan{animation:none;}
   .pk-btn:active{transform:none;}
 }
-/* Give our content its own legible dark panel only when the user opts into
-   reduced transparency or higher contrast (can't rely on the host chrome). */
-@media (prefers-reduced-transparency: reduce),(prefers-contrast: more){
-  .pk-card{
-    background:#1c1c1e;border:1px solid var(--pk-hairline);border-radius:22px;
-    padding:24px 20px;box-shadow:0 20px 60px rgba(0,0,0,0.5);
-  }
-}
-@media (prefers-contrast: more){
-  .pk-card{border-color:var(--pk-text);}
-  .pk-btn.pk-secondary{border:1px solid var(--pk-text);}
-}
 `;
 
 function ensureStyles(): void {
