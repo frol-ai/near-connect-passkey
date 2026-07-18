@@ -24,6 +24,16 @@
  * Instead our content sits transparently ON their dark surface as one modal,
  * always styled light-on-dark. A solid dark panel is restored only when the
  * user needs it (reduced transparency / increased contrast), below.
+ *
+ * We also neutralise #root's background — see openDialog(). The host paints a
+ * radial-gradient on #root that fills the iframe, a lighter surface than the
+ * outer modal card; because the iframe is a fixed height inside a smaller,
+ * scrollable modal, browsers frame that gradient rectangle differently (Chrome
+ * shows it as a distinct inner panel — "modal inside modal" — while Safari
+ * fills edge to edge). Clearing it lets the single outer modal surface show
+ * through, so it reads as one modal in every browser. It is set inline (not
+ * here) because the host's #root rule lives in a later <style> and would win
+ * the cascade at equal specificity.
  */
 #root{display:flex;align-items:center;justify-content:center;min-height:100%;box-sizing:border-box;padding:12px 18px;}
 .pk-backdrop{display:flex;align-items:center;justify-content:center;width:100%;}
@@ -158,7 +168,7 @@
     <path d="M37 65 Q50 74 63 65"/>
   </g>
   <line class="pk-scan" x1="18" y1="50" x2="82" y2="50"/>
-</svg></div>`,nS=`<div class="pk-spin" aria-hidden="true"></div>`;function rS(){let e=document.getElementById(`root`);if(!e)throw Error(`sandbox #root element missing`);return e}async function iS(e){eS();let t=rS();return t.innerHTML=`<div class="pk-backdrop"><div class="pk-card">${e}</div></div>`,t.style.display=`flex`,await Nx().ui.showIframe(),t}async function aS(){let e=rS();e.innerHTML=``,e.style.display=`none`,await Nx().ui.hideIframe()}async function oS(){await aS()}async function sS(e,t,n=`spinner`){await iS(`
+</svg></div>`,nS=`<div class="pk-spin" aria-hidden="true"></div>`;function rS(){let e=document.getElementById(`root`);if(!e)throw Error(`sandbox #root element missing`);return e}async function iS(e){eS();let t=rS();return t.innerHTML=`<div class="pk-backdrop"><div class="pk-card">${e}</div></div>`,t.style.display=`flex`,t.style.background=`transparent`,await Nx().ui.showIframe(),t}async function aS(){let e=rS();e.innerHTML=``,e.style.display=`none`,await Nx().ui.hideIframe()}async function oS(){await aS()}async function sS(e,t,n=`spinner`){await iS(`
     ${n===`biometric`?tS:nS}
     <h1>${Z(e)}</h1>
     <p>${Z(t)}</p>

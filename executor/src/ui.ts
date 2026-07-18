@@ -41,6 +41,16 @@ const STYLES = `
  * Instead our content sits transparently ON their dark surface as one modal,
  * always styled light-on-dark. A solid dark panel is restored only when the
  * user needs it (reduced transparency / increased contrast), below.
+ *
+ * We also neutralise #root's background — see openDialog(). The host paints a
+ * radial-gradient on #root that fills the iframe, a lighter surface than the
+ * outer modal card; because the iframe is a fixed height inside a smaller,
+ * scrollable modal, browsers frame that gradient rectangle differently (Chrome
+ * shows it as a distinct inner panel — "modal inside modal" — while Safari
+ * fills edge to edge). Clearing it lets the single outer modal surface show
+ * through, so it reads as one modal in every browser. It is set inline (not
+ * here) because the host's #root rule lives in a later <style> and would win
+ * the cascade at equal specificity.
  */
 #root{display:flex;align-items:center;justify-content:center;min-height:100%;box-sizing:border-box;padding:12px 18px;}
 .pk-backdrop{display:flex;align-items:center;justify-content:center;width:100%;}
@@ -204,6 +214,10 @@ async function openDialog(inner: string): Promise<HTMLElement> {
   const el = root();
   el.innerHTML = `<div class="pk-backdrop"><div class="pk-card">${inner}</div></div>`;
   el.style.display = "flex";
+  // Clear the host's radial-gradient #root background so our content sits on
+  // the single outer modal surface (avoids the "modal inside modal" framing,
+  // which differs between Chrome and Safari). Inline beats the host's <style>.
+  el.style.background = "transparent";
   await selector().ui.showIframe();
   return el;
 }
