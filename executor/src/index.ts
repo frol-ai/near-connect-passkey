@@ -211,10 +211,12 @@ async function webauthnCreate(name: string): Promise<WebauthnCreateResult> {
   return result;
 }
 
-async function webauthnGet(
+/** One WebAuthn assertion. `rawIdB64` set = targeted; unset = discovery. */
+async function rawWebauthnGet(
   challenge: Uint8Array,
-  rawIdB64?: string,
-): Promise<WebauthnGetResult> {
+  rawIdB64: string | undefined,
+  path: string,
+): Promise<{ result: WebauthnGetResult; debug: string }> {
   const options: Record<string, unknown> = {
     challenge: Array.from(challenge),
     // A wallet signature must always verify the user, never presence-only.
@@ -231,19 +233,51 @@ async function webauthnGet(
   } catch (e) {
     throw new Error(friendlyWebauthnError(e, "get"));
   }
-  // TEMPORARY: capture the assertion flags + browser (see UV-on-Windows/Edge
-  // investigation). Appended to the error below so it can be read off the UI.
-  const debug = uvDebug(
-    result.authenticatorData,
-    result.clientDataJSON,
+  // TEMPORARY: capture the assertion flags + browser (UV-on-Windows/Edge).
+  const debug = uvDebug(result.authenticatorData, result.clientDataJSON, path);
+  return { result, debug };
+}
+
+/**
+ * Get a user-verified assertion.
+ *
+ * When the credential is known we try a *targeted* get first (`allowCredentials`),
+ * which goes straight to the biometric on platforms that verify (Apple /
+ * Android / Windows Hello TPM). But Edge's Microsoft Password Manager completes
+ * a targeted assertion *silently* against an already-unlocked vault without
+ * re-verifying, returning UV=0. If that happens, retry once via *discovery*
+ * (no `allowCredentials`) — which forces the OS account chooser + Windows Hello,
+ * and does verify — then require the credential the user picks to match the one
+ * we intended.
+ */
+async function webauthnGet(
+  challenge: Uint8Array,
+  rawIdB64?: string,
+): Promise<WebauthnGetResult> {
+  let { result, debug } = await rawWebauthnGet(
+    challenge,
+    rawIdB64,
     rawIdB64 ? "targeted" : "discovery",
   );
-  // Defense in depth: even with userVerification "required" requested, only
-  // trust an assertion whose authenticator actually set the UV flag.
-  if (!authenticatorUserVerified(new Uint8Array(result.authenticatorData))) {
-    throw new Error(`${t("errNotVerified")} [debug ${debug}]`);
+  if (authenticatorUserVerified(new Uint8Array(result.authenticatorData))) {
+    return result;
   }
-  return result;
+
+  // Targeted assertion came back user-presence-only. Retry via discovery so the
+  // platform actually verifies (fixes Edge + Microsoft Password Manager). Only
+  // meaningful for the targeted case; a discovery get that already returned
+  // UV=0 won't improve by repeating.
+  if (rawIdB64) {
+    ({ result, debug } = await rawWebauthnGet(challenge, undefined, "discovery-retry"));
+    if (rawIdToB64(result.rawId) !== rawIdB64) {
+      throw new Error(t("errWrongPasskey"));
+    }
+    if (authenticatorUserVerified(new Uint8Array(result.authenticatorData))) {
+      return result;
+    }
+  }
+
+  throw new Error(`${t("errNotVerified")} [debug ${debug}]`);
 }
 
 // ─── Credential resolution ───────────────────────────────────────────────────

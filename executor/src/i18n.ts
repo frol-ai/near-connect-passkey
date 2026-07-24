@@ -67,6 +67,8 @@ const en: Catalog = {
     "Your device created a passkey that can't be recovered later (it isn't a resident key). Please try a different device or use your phone to create the passkey.",
   errNotVerified:
     "Your device signed in without verifying it's you. Please set up Face ID, a fingerprint, a screen lock, or a security-key PIN, then try again.",
+  errWrongPasskey:
+    "That was a different passkey than this account. Please try again and choose this account's passkey.",
   errNotRegistered:
     "This passkey is not registered in the passkeys registry (or the registered keys do not match its signature). Create it again on the original device or register it first.",
   errRegistrationCancelled: "Passkey registration cancelled: {message}",
@@ -140,6 +142,7 @@ const zh: Catalog = {
     "你的设备创建了一个之后无法恢复的通行密钥（它不是常驻密钥）。请换一台设备，或用你的手机创建通行密钥。",
   errNotVerified:
     "你的设备在未验证你身份的情况下登录。请设置 Face ID、指纹、屏幕锁或安全密钥 PIN，然后重试。",
+  errWrongPasskey: "所选通行密钥与此账户不符。请重试并选择此账户的通行密钥。",
   errNotRegistered:
     "此通行密钥未在通行密钥注册表中注册（或已注册的密钥与其签名不匹配）。请在原设备上重新创建，或先进行注册。",
   errRegistrationCancelled: "通行密钥注册已取消：{message}",
@@ -208,6 +211,8 @@ const hi: Catalog = {
     "आपके डिवाइस ने एक ऐसी पासकी बनाई जिसे बाद में पुनर्प्राप्त नहीं किया जा सकता (यह रेज़िडेंट कुंजी नहीं है)। कृपया कोई दूसरा डिवाइस आज़माएँ या पासकी बनाने के लिए अपने फ़ोन का उपयोग करें।",
   errNotVerified:
     "आपके डिवाइस ने आपकी पहचान सत्यापित किए बिना साइन इन किया। कृपया Face ID, फ़िंगरप्रिंट, स्क्रीन लॉक, या सुरक्षा-कुंजी PIN सेट करें, फिर पुनः प्रयास करें।",
+  errWrongPasskey:
+    "यह इस खाते से अलग पासकी थी। कृपया पुनः प्रयास करें और इस खाते की पासकी चुनें।",
   errNotRegistered:
     "यह पासकी पासकी रजिस्ट्री में पंजीकृत नहीं है (या पंजीकृत कुंजियाँ इसके हस्ताक्षर से मेल नहीं खातीं)। इसे मूल डिवाइस पर फिर से बनाएँ या पहले पंजीकृत करें।",
   errRegistrationCancelled: "पासकी पंजीकरण रद्द किया गया: {message}",
@@ -281,6 +286,8 @@ const es: Catalog = {
     "Tu dispositivo creó una passkey que no se podrá recuperar más adelante (no es una clave residente). Prueba con otro dispositivo o usa tu teléfono para crear la passkey.",
   errNotVerified:
     "Tu dispositivo inició sesión sin verificar tu identidad. Configura Face ID, una huella, un bloqueo de pantalla o un PIN de llave de seguridad e inténtalo de nuevo.",
+  errWrongPasskey:
+    "Esa era una passkey distinta a la de esta cuenta. Inténtalo de nuevo y elige la passkey de esta cuenta.",
   errNotRegistered:
     "Esta passkey no está registrada en el registro de passkeys (o las claves registradas no coinciden con su firma). Vuelve a crearla en el dispositivo original o regístrala primero.",
   errRegistrationCancelled: "Registro de passkey cancelado: {message}",
@@ -354,6 +361,8 @@ const fr: Catalog = {
     "Votre appareil a créé une passkey qui ne pourra pas être récupérée plus tard (ce n'est pas une clé résidente). Essayez un autre appareil ou utilisez votre téléphone pour créer la passkey.",
   errNotVerified:
     "Votre appareil s'est connecté sans vérifier votre identité. Configurez Face ID, une empreinte, un verrouillage d'écran ou un code PIN de clé de sécurité, puis réessayez.",
+  errWrongPasskey:
+    "Ce n'était pas la passkey de ce compte. Réessayez et choisissez la passkey de ce compte.",
   errNotRegistered:
     "Cette passkey n'est pas enregistrée dans le registre des passkeys (ou les clés enregistrées ne correspondent pas à sa signature). Recréez-la sur l'appareil d'origine ou enregistrez-la d'abord.",
   errRegistrationCancelled: "Enregistrement de la passkey annulé : {message}",
