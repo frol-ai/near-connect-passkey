@@ -52,6 +52,7 @@ import {
   authenticatorUserVerified,
   b64ToRawId,
   buildProof,
+  decodeCbor,
   extractCredentialPublicKey,
   rawIdToB64,
   verifyAssertion,
@@ -108,6 +109,42 @@ function randomBytes(length: number): number[] {
   return Array.from(crypto.getRandomValues(new Uint8Array(length)));
 }
 
+// ─── TEMPORARY UV diagnostics ────────────────────────────────────────────────
+// Capture the WebAuthn authenticatorData flags + browser so we can tell a
+// synced-provider (Microsoft Password Manager) UP-only assertion from a
+// genuine Windows Hello verification returning UV=0. authenticatorData layout:
+// rpIdHash(32) then flags(1) at index 32 — bit0 UP, bit2 UV, bit3 BE, bit4 BS.
+// Remove once the Windows/Edge UV issue is diagnosed.
+function uvDebug(authenticatorData: number[], path: string): string {
+  const flags = authenticatorData[32] ?? 0;
+  const bit = (m: number) => (flags & m ? 1 : 0);
+  const info = {
+    flags: `0x${flags.toString(16).padStart(2, "0")}`,
+    UP: bit(0x01),
+    UV: bit(0x04),
+    BE: bit(0x08),
+    BS: bit(0x10),
+    path,
+    ua: typeof navigator !== "undefined" ? navigator.userAgent : "",
+  };
+  // eslint-disable-next-line no-console
+  console.warn("[passkey-uv-debug]", info);
+  return `flags=${info.flags} UP=${info.UP} UV=${info.UV} BE=${info.BE} BS=${info.BS} path=${path} ua=${info.ua}`;
+}
+
+/** Best-effort flags from a create() attestation, for create-vs-get comparison. */
+function createUvDebug(created: WebauthnCreateResult): void {
+  try {
+    const att = decodeCbor(new Uint8Array(created.attestationObject));
+    const authData = att instanceof Map ? att.get("authData") : undefined;
+    if (authData instanceof Uint8Array) {
+      uvDebug(Array.from(authData), "create");
+    }
+  } catch {
+    // diagnostics only — never let this affect the create flow
+  }
+}
+
 async function webauthnCreate(name: string): Promise<WebauthnCreateResult> {
   // Resident key + user verification are BOTH required:
   // - resident (discoverable): the credential must be recoverable by
@@ -142,6 +179,8 @@ async function webauthnCreate(name: string): Promise<WebauthnCreateResult> {
     throw new Error(friendlyWebauthnError(e, "create"));
   }
 
+  createUvDebug(result); // TEMPORARY: log create flags for create-vs-get comparison
+
   // If the browser reports credProps, insist the key is actually resident —
   // a non-resident key would leave the account unrecoverable.
   if (result.clientExtensionResults?.credProps?.rk === false) {
@@ -170,10 +209,13 @@ async function webauthnGet(
   } catch (e) {
     throw new Error(friendlyWebauthnError(e, "get"));
   }
+  // TEMPORARY: capture the assertion flags + browser (see UV-on-Windows/Edge
+  // investigation). Appended to the error below so it can be read off the UI.
+  const debug = uvDebug(result.authenticatorData, rawIdB64 ? "targeted" : "discovery");
   // Defense in depth: even with userVerification "required" requested, only
   // trust an assertion whose authenticator actually set the UV flag.
   if (!authenticatorUserVerified(new Uint8Array(result.authenticatorData))) {
-    throw new Error(t("errNotVerified"));
+    throw new Error(`${t("errNotVerified")} [debug ${debug}]`);
   }
   return result;
 }
