@@ -160,17 +160,34 @@ full-viewport moving background.
 
 ## 9. Internationalization
 
-All user-facing strings live in `src/i18n.ts`, translated into the five most
-widely spoken languages by total speakers: English, Mandarin Chinese, Hindi,
-Spanish, French. Language is auto-detected from `navigator.languages` (English
-fallback) and overridable via `setLang`.
+All user-facing strings live in `src/i18n.ts`, translated into 19 of the most
+widely spoken languages: English, Mandarin Chinese, Hindi, Spanish, French,
+Arabic, Persian, Russian, Ukrainian, Portuguese, German, Italian, Polish,
+Dutch, Turkish, Indonesian, Vietnamese, Japanese, Korean. Language is
+auto-detected from `navigator.languages` and overridable via `setLang`.
+
+- **Smart fallbacks** (`LANG_FALLBACKS`): an unsupported locale maps to the
+  closest supported language a user likely reads, not English — e.g.
+  Belarusian/Kazakh/Uzbek → Russian, Malay → Indonesian, Catalan/Galician →
+  Spanish, Afrikaans → Dutch, Marathi/Nepali/Punjabi → Hindi, Azerbaijani →
+  Turkish, Pashto/Dari → Persian. Only then does it fall back to English.
+- **RTL**: Arabic and Persian are marked in `RTL_LANGS`; `openDialog` in
+  `ui.ts` sets the dialog `dir` from `dir()`. Add a language to `RTL_LANGS`
+  and RTL just works.
 
 Rules for future edits:
 
 - **No user-facing string literals** in `ui.ts` / `index.ts` / `errors.ts` —
   add a key to every catalog and use `t("key")`. The `i18n` test asserts every
-  language defines the full English key set, so a half-added key fails CI.
-- All five current languages are **left-to-right**. Adding a right-to-left
-  language (e.g. Arabic) additionally requires setting `dir="rtl"` on the
-  dialog container in `ui.ts`.
+  supported language defines the full English key set, so a half-added key
+  fails CI.
+- Adding a language: extend `Lang` + `SUPPORTED_LANGS`, add the catalog, and
+  (if RTL) add it to `RTL_LANGS`. Consider whether related unsupported locales
+  should now fall back to it via `LANG_FALLBACKS`.
 - Placeholders use `{name}` and are filled from `t(key, { name })`.
+
+**Not yet translated (needs native review before shipping):** several strict
+top-25 languages remain — Bengali, Urdu, Tamil, Telugu, Thai, Tagalog, plus
+Marathi/Punjabi (currently fall back to Hindi). Their error copy is
+security-relevant, so add them with native-speaker review rather than
+unreviewed machine output.

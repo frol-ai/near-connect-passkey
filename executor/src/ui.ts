@@ -1,5 +1,5 @@
 import { DEFAULT_PASSKEY_LABEL } from "./constants";
-import { t } from "./i18n";
+import { dir, t } from "./i18n";
 import { selector } from "./types";
 
 /**
@@ -202,6 +202,8 @@ async function openDialog(inner: string): Promise<HTMLElement> {
   const el = root();
   el.innerHTML = `<div class="pk-backdrop"><div class="pk-card">${inner}</div></div>`;
   el.style.display = "flex";
+  // Right-to-left languages (Arabic, Persian) mirror the whole dialog.
+  el.dir = dir();
   // Clear the host's radial-gradient #root background so our content sits on
   // the single outer modal surface (avoids the "modal inside modal" framing,
   // which differs between Chrome and Safari). Inline beats the host's <style>.

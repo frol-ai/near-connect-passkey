@@ -117,7 +117,7 @@ domain, which the sandboxed executor deliberately does not do.
 | `protocol.ts` | raw NEAR protocol tx encoder (StateInit support) + JSON-RPC broadcast |
 | `webauthn.ts` | CBOR/COSE/SPKI key extraction, DER→raw low-S, local assertion verify, UV-flag check, proof blob |
 | `errors.ts` | WebAuthn `DOMException` → plain-language, non-technical user messages (via `i18n`) |
-| `i18n.ts` | localized user-facing strings (en/zh/hi/es/fr), `navigator`-detected |
+| `i18n.ts` | localized user-facing strings (19 languages), `navigator`-detected with smart fallbacks + RTL |
 | `registry.ts` | `passkeys-registry.near` get/register (retry + backoff) |
 | `relayer.ts` | sponsor-signed relaying of `w_execute_signed` / StateInit |
 | `storage.ts` | typed sandboxed-storage accessors, nonce counter |

@@ -2,20 +2,64 @@
  * Minimal, dependency-free internationalization for the executor's
  * user-facing strings.
  *
- * Languages: the five most widely spoken worldwide by total speakers —
- * English (`en`), Mandarin Chinese (`zh`), Hindi (`hi`), Spanish (`es`),
- * French (`fr`). All five are left-to-right; if a right-to-left language
- * (e.g. Arabic) is ever added, the dialog container in `ui.ts` must also set
- * `dir="rtl"`.
+ * Languages: a broad set of the most widely spoken languages worldwide.
+ * Right-to-left languages (Arabic `ar`, Persian `fa`) are marked in
+ * {@link RTL_LANGS}; the dialog container in `ui.ts` sets `dir` from
+ * {@link dir}.
  *
  * The active language is detected once from `navigator.languages` and can be
- * overridden with {@link setLang}. Missing keys fall back to English, then to
- * the key itself, so a partial translation never renders an empty string.
+ * overridden with {@link setLang}. Detection uses {@link LANG_FALLBACKS} to map
+ * an unsupported locale to the closest supported one (e.g. Belarusian → Russian,
+ * Malay → Indonesian) before falling back to English. Missing keys fall back to
+ * English, then to the key itself, so a partial translation never renders an
+ * empty string.
  */
 
-export type Lang = "en" | "zh" | "hi" | "es" | "fr";
+export type Lang =
+  | "en"
+  | "zh"
+  | "hi"
+  | "es"
+  | "fr"
+  | "ar"
+  | "fa"
+  | "ru"
+  | "uk"
+  | "pt"
+  | "de"
+  | "it"
+  | "pl"
+  | "nl"
+  | "tr"
+  | "id"
+  | "vi"
+  | "ja"
+  | "ko";
 
-export const SUPPORTED_LANGS: readonly Lang[] = ["en", "zh", "hi", "es", "fr"];
+export const SUPPORTED_LANGS: readonly Lang[] = [
+  "en",
+  "zh",
+  "hi",
+  "es",
+  "fr",
+  "ar",
+  "fa",
+  "ru",
+  "uk",
+  "pt",
+  "de",
+  "it",
+  "pl",
+  "nl",
+  "tr",
+  "id",
+  "vi",
+  "ja",
+  "ko",
+];
+
+/** Right-to-left languages — the dialog container sets `dir` from these. */
+const RTL_LANGS: ReadonlySet<Lang> = new Set<Lang>(["ar", "fa"]);
 
 type Params = Record<string, string | number>;
 type Catalog = Record<string, string>;
@@ -389,7 +433,1077 @@ const fr: Catalog = {
     "Une erreur s'est produite lors de la connexion avec votre passkey. Réessayez sur l'appareil où vous l'avez créée.",
 };
 
-const CATALOGS: Record<Lang, Catalog> = { en, zh, hi, es, fr };
+const ar: Catalog = {
+  appTitle: "Trezu",
+  appTagline: "لا كلمة مرور، ولا عبارة استرداد — جهازك فقط.",
+  signUp: "إنشاء حساب",
+  signIn: "تسجيل الدخول",
+
+  addAccountTitle: "إضافة حساب آخر",
+  addAccountSubtitle: "أدخل اسم مستخدم أو بريدًا إلكترونيًا للتمييز بين حساباتك",
+  usernameOrEmailPlaceholder: "اسم المستخدم أو البريد الإلكتروني",
+  continue: "متابعة",
+
+  registrationFailedTitle: "فشل التسجيل",
+  registrationNotRegisteredWarning:
+    "تم إنشاء مفتاح المرور الخاص بك لكنه غير مُسجّل بعد. بدون التسجيل لا يمكن استرداده على أجهزة أخرى.",
+  retry: "إعادة المحاولة",
+  cancel: "إلغاء",
+  close: "إغلاق",
+  passkeyNotRegisteredTitle: "مفتاح المرور غير مُسجّل",
+
+  createPasskeyTitle: "أنشئ مفتاح المرور الخاص بك",
+  createPasskeySubtitle: "أكِّد على جهازك عند الطلب",
+  registeringTitle: "جارٍ تسجيل مفتاح المرور",
+  registeringSubtitle: "جارٍ نشر مفتاحه العام على NEAR…",
+  approveTxTitle: "الموافقة على المعاملة",
+  approveTxSubtitle: "أكِّد على جهازك للموافقة.",
+  approveBtn: "موافقة",
+  signMsgTitle: "تأكيد التوقيع",
+  signMsgSubtitle: "أكِّد على جهازك لتوقيع هذه الرسالة.",
+  signBtn: "توقيع",
+  confirmSignInTitle: "تأكيد تسجيل الدخول",
+  confirmSignInSubtitle: "أكِّد على جهازك لتسجيل الدخول.",
+  confirmSignInBtn: "تسجيل الدخول",
+  confirmSignInAgainSubtitle: "أكِّد مرة أخرى على جهازك.",
+  lookingUpTitle: "جارٍ البحث عن حسابك",
+  lookingUpSubtitle: "جارٍ التعرّف على مفتاح المرور على NEAR…",
+  signingInTitle: "جارٍ تسجيل دخولك",
+  signingInFinalizeSubtitle: "جارٍ إتمام حسابك على NEAR…",
+  signingInSetupSubtitle: "جارٍ إعداد حسابك على NEAR…",
+  usePasskeyTitle: "استخدم مفتاح المرور الخاص بك",
+  usePasskeySubtitle: "اختر مفتاح مرور وأكِّد على جهازك",
+
+  errOrphan:
+    "أنشأ جهازك مفتاح مرور لا يمكن لهذه المحفظة استخدامه. افتح إعدادات كلمات المرور / مفاتيح المرور على جهازك، واحذف مفتاح المرور الذي أنشأته للتو لهذا الموقع، ثم أعد المحاولة على جهاز آخر.",
+  errNonResident:
+    "أنشأ جهازك مفتاح مرور لا يمكن استرداده لاحقًا (ليس مفتاحًا مقيمًا). جرّب جهازًا آخر أو استخدم هاتفك لإنشاء مفتاح المرور.",
+  errNotVerified:
+    "سجّل جهازك الدخول دون التحقق من هويتك. يُرجى إعداد Face ID أو بصمة إصبع أو قفل شاشة أو رمز PIN لمفتاح أمان، ثم أعد المحاولة.",
+  errWrongPasskey:
+    "كان هذا مفتاح مرور مختلفًا عن هذا الحساب. أعد المحاولة واختر مفتاح مرور هذا الحساب.",
+  errNotRegistered:
+    "مفتاح المرور هذا غير مُسجّل في سجل مفاتيح المرور (أو المفاتيح المُسجّلة لا تطابق توقيعه). أنشئه من جديد على الجهاز الأصلي أو سجّله أولًا.",
+  errRegistrationCancelled: "تم إلغاء تسجيل مفتاح المرور: {message}",
+  errNotSignedIn: "لم يتم تسجيل الدخول إلى المحفظة",
+
+  waCancelledCreate:
+    "تم إلغاء إنشاء مفتاح المرور أو انتهت المهلة. أعد المحاولة وأكِّد على جهازك عند الطلب.",
+  waCancelledGet:
+    "تم إلغاء تسجيل الدخول أو انتهت المهلة. أعد المحاولة وأكِّد على جهازك عند الطلب.",
+  waDuplicate: "لديك حساب بالفعل على هذا الجهاز. اختر «تسجيل الدخول» لاستخدامه.",
+  waNotSupportedCreate:
+    "لا يستطيع هذا الجهاز إنشاء نوع مفتاح المرور الذي تحتاجه هذه المحفظة. جرّب جهازًا آخر، أو استخدم هاتفك لمسح رمز QR لتسجيل الدخول.",
+  waNotSupportedGet:
+    "لا يستطيع هذا الجهاز تسجيل الدخول بمفتاح مرور. جرّب الجهاز الذي أنشأته عليه أولًا، أو استخدم هاتفك لمسح رمز QR.",
+  waConstraintCreate:
+    "يحتاج جهازك أو مفتاح الأمان إلى إعداد رمز PIN أو بصمة إصبع أو فتح بالوجه قبل أن يتمكن من إنشاء مفتاح المرور هذا. أضِف واحدًا في إعدادات جهازك وأعد المحاولة.",
+  waConstraintGet:
+    "يحتاج مفتاح الأمان إلى رمز PIN أو يحتاج جهازك إلى قفل شاشة لتسجيل الدخول. أعدّه ثم أعد المحاولة.",
+  waSecurity:
+    "غير مسموح لهذا الموقع باستخدام مفاتيح المرور حاليًا. تأكّد من أنك على الموقع الصحيح وأنه مُحمّل عبر اتصال آمن (https).",
+  waGenericCreate:
+    "حدث خطأ أثناء إنشاء مفتاح المرور. أعد المحاولة، وتأكّد من إعداد قفل شاشة جهازك (Face ID أو بصمة إصبع أو رمز PIN).",
+  waGenericGet:
+    "حدث خطأ أثناء تسجيل الدخول بمفتاح المرور. أعد المحاولة على الجهاز الذي أنشأته عليه.",
+};
+
+const fa: Catalog = {
+  appTitle: "Trezu",
+  appTagline: "بدون رمز عبور، بدون عبارت بازیابی — فقط دستگاه شما.",
+  signUp: "ثبت‌نام",
+  signIn: "ورود",
+
+  addAccountTitle: "افزودن حساب دیگر",
+  addAccountSubtitle: "برای تمایز حساب‌هایتان یک نام کاربری یا ایمیل وارد کنید",
+  usernameOrEmailPlaceholder: "نام کاربری یا ایمیل",
+  continue: "ادامه",
+
+  registrationFailedTitle: "ثبت‌نام ناموفق بود",
+  registrationNotRegisteredWarning:
+    "پس‌کلید شما ساخته شد اما هنوز ثبت نشده است. بدون ثبت، روی دستگاه‌های دیگر قابل بازیابی نیست.",
+  retry: "تلاش دوباره",
+  cancel: "لغو",
+  close: "بستن",
+  passkeyNotRegisteredTitle: "پس‌کلید ثبت نشده است",
+
+  createPasskeyTitle: "پس‌کلید خود را بسازید",
+  createPasskeySubtitle: "هنگام درخواست، با دستگاه خود تأیید کنید",
+  registeringTitle: "در حال ثبت پس‌کلید شما",
+  registeringSubtitle: "در حال انتشار کلید عمومی آن روی NEAR…",
+  approveTxTitle: "تأیید تراکنش",
+  approveTxSubtitle: "برای تأیید، با دستگاه خود تأیید کنید.",
+  approveBtn: "تأیید",
+  signMsgTitle: "تأیید امضا",
+  signMsgSubtitle: "برای امضای این پیام، با دستگاه خود تأیید کنید.",
+  signBtn: "امضا",
+  confirmSignInTitle: "تأیید ورود",
+  confirmSignInSubtitle: "برای ورود، با دستگاه خود تأیید کنید.",
+  confirmSignInBtn: "ورود",
+  confirmSignInAgainSubtitle: "یک بار دیگر با دستگاه خود تأیید کنید.",
+  lookingUpTitle: "در حال یافتن حساب شما",
+  lookingUpSubtitle: "در حال یافتن پس‌کلید شما روی NEAR…",
+  signingInTitle: "در حال ورود شما",
+  signingInFinalizeSubtitle: "در حال نهایی‌سازی حساب شما روی NEAR…",
+  signingInSetupSubtitle: "در حال راه‌اندازی حساب شما روی NEAR…",
+  usePasskeyTitle: "از پس‌کلید خود استفاده کنید",
+  usePasskeySubtitle: "یک پس‌کلید انتخاب کنید و با دستگاه خود تأیید کنید",
+
+  errOrphan:
+    "دستگاه شما پس‌کلیدی ساخت که این کیف پول نمی‌تواند از آن استفاده کند. تنظیمات رمزها / پس‌کلیدهای دستگاه خود را باز کنید، پس‌کلیدی که همین حالا برای این سایت ساختید حذف کنید، سپس روی دستگاه دیگری دوباره تلاش کنید.",
+  errNonResident:
+    "دستگاه شما پس‌کلیدی ساخت که بعداً قابل بازیابی نیست (کلید مقیم نیست). دستگاه دیگری را امتحان کنید یا از تلفن خود برای ساخت پس‌کلید استفاده کنید.",
+  errNotVerified:
+    "دستگاه شما بدون تأیید هویت شما وارد شد. لطفاً Face ID، اثر انگشت، قفل صفحه یا پین کلید امنیتی را تنظیم کنید، سپس دوباره تلاش کنید.",
+  errWrongPasskey:
+    "این پس‌کلیدی متفاوت از این حساب بود. دوباره تلاش کنید و پس‌کلید این حساب را انتخاب کنید.",
+  errNotRegistered:
+    "این پس‌کلید در دفترچه پس‌کلیدها ثبت نشده است (یا کلیدهای ثبت‌شده با امضای آن مطابقت ندارند). آن را روی دستگاه اصلی دوباره بسازید یا ابتدا ثبت کنید.",
+  errRegistrationCancelled: "ثبت پس‌کلید لغو شد: {message}",
+  errNotSignedIn: "به کیف پول وارد نشده‌اید",
+
+  waCancelledCreate:
+    "ساخت پس‌کلید لغو شد یا زمان آن به پایان رسید. دوباره تلاش کنید و هنگام درخواست با دستگاه خود تأیید کنید.",
+  waCancelledGet:
+    "ورود لغو شد یا زمان آن به پایان رسید. دوباره تلاش کنید و هنگام درخواست با دستگاه خود تأیید کنید.",
+  waDuplicate: "شما از قبل روی این دستگاه یک حساب دارید. برای استفاده «ورود» را انتخاب کنید.",
+  waNotSupportedCreate:
+    "این دستگاه نمی‌تواند نوع پس‌کلید مورد نیاز این کیف پول را بسازد. دستگاه دیگری را امتحان کنید یا از تلفن خود برای اسکن کد QR ورود استفاده کنید.",
+  waNotSupportedGet:
+    "این دستگاه نمی‌تواند با پس‌کلید وارد شود. دستگاهی که ابتدا آن را ساختید امتحان کنید یا از تلفن خود برای اسکن کد QR استفاده کنید.",
+  waConstraintCreate:
+    "دستگاه یا کلید امنیتی شما پیش از ساخت این پس‌کلید به یک پین، اثر انگشت یا بازکردن با چهره نیاز دارد. آن را در تنظیمات دستگاه خود اضافه کنید و دوباره تلاش کنید.",
+  waConstraintGet:
+    "کلید امنیتی شما به پین یا دستگاه شما به قفل صفحه برای ورود نیاز دارد. آن را تنظیم کنید و دوباره تلاش کنید.",
+  waSecurity:
+    "این سایت اکنون مجاز به استفاده از پس‌کلید نیست. مطمئن شوید در وب‌سایت درست هستید و از طریق اتصال امن (https) بارگذاری شده است.",
+  waGenericCreate:
+    "هنگام ساخت پس‌کلید خطایی رخ داد. دوباره تلاش کنید و مطمئن شوید قفل صفحه دستگاه شما (Face ID، اثر انگشت یا پین) تنظیم شده است.",
+  waGenericGet:
+    "هنگام ورود با پس‌کلید خطایی رخ داد. روی دستگاهی که آن را ساختید دوباره تلاش کنید.",
+};
+
+const ru: Catalog = {
+  appTitle: "Trezu",
+  appTagline: "Без пароля, без seed-фразы — только ваше устройство.",
+  signUp: "Зарегистрироваться",
+  signIn: "Войти",
+
+  addAccountTitle: "Добавить ещё один аккаунт",
+  addAccountSubtitle: "Введите имя пользователя или email, чтобы различать аккаунты",
+  usernameOrEmailPlaceholder: "имя пользователя или email",
+  continue: "Продолжить",
+
+  registrationFailedTitle: "Не удалось зарегистрировать",
+  registrationNotRegisteredWarning:
+    "Ваш passkey создан, но ещё не зарегистрирован. Без регистрации его нельзя восстановить на других устройствах.",
+  retry: "Повторить",
+  cancel: "Отмена",
+  close: "Закрыть",
+  passkeyNotRegisteredTitle: "Passkey не зарегистрирован",
+
+  createPasskeyTitle: "Создайте passkey",
+  createPasskeySubtitle: "Подтвердите на устройстве по запросу",
+  registeringTitle: "Регистрируем ваш passkey",
+  registeringSubtitle: "Публикуем его открытый ключ в NEAR…",
+  approveTxTitle: "Подтвердить транзакцию",
+  approveTxSubtitle: "Подтвердите на устройстве, чтобы одобрить.",
+  approveBtn: "Одобрить",
+  signMsgTitle: "Подтвердить подпись",
+  signMsgSubtitle: "Подтвердите на устройстве, чтобы подписать это сообщение.",
+  signBtn: "Подписать",
+  confirmSignInTitle: "Подтвердить вход",
+  confirmSignInSubtitle: "Подтвердите на устройстве, чтобы войти.",
+  confirmSignInBtn: "Войти",
+  confirmSignInAgainSubtitle: "Подтвердите ещё раз на устройстве.",
+  lookingUpTitle: "Ищем ваш аккаунт",
+  lookingUpSubtitle: "Определяем ваш passkey в NEAR…",
+  signingInTitle: "Выполняем вход",
+  signingInFinalizeSubtitle: "Завершаем настройку аккаунта в NEAR…",
+  signingInSetupSubtitle: "Настраиваем ваш аккаунт в NEAR…",
+  usePasskeyTitle: "Используйте ваш passkey",
+  usePasskeySubtitle: "Выберите passkey и подтвердите на устройстве",
+
+  errOrphan:
+    "Ваше устройство создало passkey, который этот кошелёк не может использовать. Откройте настройки паролей / passkey на устройстве, удалите passkey, только что созданный для этого сайта, затем повторите на другом устройстве.",
+  errNonResident:
+    "Ваше устройство создало passkey, который нельзя будет восстановить (это не резидентный ключ). Попробуйте другое устройство или создайте passkey с телефона.",
+  errNotVerified:
+    "Ваше устройство выполнило вход без подтверждения вашей личности. Настройте Face ID, отпечаток пальца, блокировку экрана или PIN ключа безопасности и повторите попытку.",
+  errWrongPasskey:
+    "Это был другой passkey, не от этого аккаунта. Повторите попытку и выберите passkey этого аккаунта.",
+  errNotRegistered:
+    "Этот passkey не зарегистрирован в реестре passkey (или зарегистрированные ключи не соответствуют его подписи). Создайте его заново на исходном устройстве или сначала зарегистрируйте.",
+  errRegistrationCancelled: "Регистрация passkey отменена: {message}",
+  errNotSignedIn: "Вход в кошелёк не выполнен",
+
+  waCancelledCreate:
+    "Создание passkey отменено или истекло время ожидания. Повторите попытку и подтвердите на устройстве по запросу.",
+  waCancelledGet:
+    "Вход отменён или истекло время ожидания. Повторите попытку и подтвердите на устройстве по запросу.",
+  waDuplicate: "На этом устройстве у вас уже есть аккаунт. Выберите «Войти», чтобы использовать его.",
+  waNotSupportedCreate:
+    "Это устройство не может создать passkey нужного этому кошельку типа. Попробуйте другое устройство или отсканируйте телефоном QR-код для входа.",
+  waNotSupportedGet:
+    "Это устройство не может войти с passkey. Попробуйте устройство, на котором вы его создали, или отсканируйте телефоном QR-код.",
+  waConstraintCreate:
+    "Прежде чем создать этот passkey, на устройстве или ключе безопасности нужно настроить PIN, отпечаток пальца или разблокировку по лицу. Добавьте их в настройках устройства и повторите.",
+  waConstraintGet:
+    "Для входа ключу безопасности нужен PIN, а устройству — блокировка экрана. Настройте и повторите попытку.",
+  waSecurity:
+    "Этому сайту сейчас нельзя использовать passkey. Убедитесь, что вы на правильном сайте и он загружен по защищённому соединению (https).",
+  waGenericCreate:
+    "Не удалось создать passkey. Повторите попытку и убедитесь, что на устройстве настроена блокировка экрана (Face ID, отпечаток пальца или PIN).",
+  waGenericGet:
+    "Не удалось войти с passkey. Повторите попытку на устройстве, где вы его создали.",
+};
+
+const uk: Catalog = {
+  appTitle: "Trezu",
+  appTagline: "Без пароля, без seed-фрази — лише ваш пристрій.",
+  signUp: "Зареєструватися",
+  signIn: "Увійти",
+
+  addAccountTitle: "Додати інший обліковий запис",
+  addAccountSubtitle: "Введіть ім'я користувача або email, щоб розрізняти облікові записи",
+  usernameOrEmailPlaceholder: "ім'я користувача або email",
+  continue: "Продовжити",
+
+  registrationFailedTitle: "Не вдалося зареєструвати",
+  registrationNotRegisteredWarning:
+    "Ваш passkey створено, але ще не зареєстровано. Без реєстрації його неможливо відновити на інших пристроях.",
+  retry: "Повторити",
+  cancel: "Скасувати",
+  close: "Закрити",
+  passkeyNotRegisteredTitle: "Passkey не зареєстровано",
+
+  createPasskeyTitle: "Створіть passkey",
+  createPasskeySubtitle: "Підтвердьте на пристрої за запитом",
+  registeringTitle: "Реєструємо ваш passkey",
+  registeringSubtitle: "Публікуємо його відкритий ключ у NEAR…",
+  approveTxTitle: "Підтвердити транзакцію",
+  approveTxSubtitle: "Підтвердьте на пристрої, щоб схвалити.",
+  approveBtn: "Схвалити",
+  signMsgTitle: "Підтвердити підпис",
+  signMsgSubtitle: "Підтвердьте на пристрої, щоб підписати це повідомлення.",
+  signBtn: "Підписати",
+  confirmSignInTitle: "Підтвердити вхід",
+  confirmSignInSubtitle: "Підтвердьте на пристрої, щоб увійти.",
+  confirmSignInBtn: "Увійти",
+  confirmSignInAgainSubtitle: "Підтвердьте ще раз на пристрої.",
+  lookingUpTitle: "Шукаємо ваш обліковий запис",
+  lookingUpSubtitle: "Визначаємо ваш passkey у NEAR…",
+  signingInTitle: "Виконуємо вхід",
+  signingInFinalizeSubtitle: "Завершуємо налаштування облікового запису в NEAR…",
+  signingInSetupSubtitle: "Налаштовуємо ваш обліковий запис у NEAR…",
+  usePasskeyTitle: "Скористайтеся вашим passkey",
+  usePasskeySubtitle: "Виберіть passkey і підтвердьте на пристрої",
+
+  errOrphan:
+    "Ваш пристрій створив passkey, який цей гаманець не може використати. Відкрийте налаштування паролів / passkey на пристрої, видаліть passkey, щойно створений для цього сайту, потім повторіть на іншому пристрої.",
+  errNonResident:
+    "Ваш пристрій створив passkey, який не можна буде відновити (це не резидентний ключ). Спробуйте інший пристрій або створіть passkey з телефона.",
+  errNotVerified:
+    "Ваш пристрій виконав вхід без підтвердження вашої особи. Налаштуйте Face ID, відбиток пальця, блокування екрана або PIN ключа безпеки та повторіть спробу.",
+  errWrongPasskey:
+    "Це був інший passkey, не від цього облікового запису. Повторіть спробу та виберіть passkey цього облікового запису.",
+  errNotRegistered:
+    "Цей passkey не зареєстрований у реєстрі passkey (або зареєстровані ключі не відповідають його підпису). Створіть його заново на початковому пристрої або спершу зареєструйте.",
+  errRegistrationCancelled: "Реєстрацію passkey скасовано: {message}",
+  errNotSignedIn: "Вхід у гаманець не виконано",
+
+  waCancelledCreate:
+    "Створення passkey скасовано або час очікування вичерпано. Повторіть спробу та підтвердьте на пристрої за запитом.",
+  waCancelledGet:
+    "Вхід скасовано або час очікування вичерпано. Повторіть спробу та підтвердьте на пристрої за запитом.",
+  waDuplicate: "На цьому пристрої у вас уже є обліковий запис. Виберіть «Увійти», щоб скористатися ним.",
+  waNotSupportedCreate:
+    "Цей пристрій не може створити passkey потрібного цьому гаманцю типу. Спробуйте інший пристрій або відскануйте телефоном QR-код для входу.",
+  waNotSupportedGet:
+    "Цей пристрій не може увійти з passkey. Спробуйте пристрій, на якому ви його створили, або відскануйте телефоном QR-код.",
+  waConstraintCreate:
+    "Перш ніж створити цей passkey, на пристрої чи ключі безпеки потрібно налаштувати PIN, відбиток пальця або розблокування обличчям. Додайте їх у налаштуваннях пристрою та повторіть.",
+  waConstraintGet:
+    "Для входу ключу безпеки потрібен PIN, а пристрою — блокування екрана. Налаштуйте та повторіть спробу.",
+  waSecurity:
+    "Цьому сайту зараз не дозволено використовувати passkey. Переконайтеся, що ви на правильному сайті й він завантажений через захищене з'єднання (https).",
+  waGenericCreate:
+    "Не вдалося створити passkey. Повторіть спробу та переконайтеся, що на пристрої налаштовано блокування екрана (Face ID, відбиток пальця або PIN).",
+  waGenericGet:
+    "Не вдалося увійти з passkey. Повторіть спробу на пристрої, де ви його створили.",
+};
+
+const pt: Catalog = {
+  appTitle: "Trezu",
+  appTagline: "Sem senha, sem frase de recuperação — apenas o seu dispositivo.",
+  signUp: "Criar conta",
+  signIn: "Entrar",
+
+  addAccountTitle: "Adicionar outra conta",
+  addAccountSubtitle: "Digite um nome de usuário ou email para diferenciar suas contas",
+  usernameOrEmailPlaceholder: "nome de usuário ou email",
+  continue: "Continuar",
+
+  registrationFailedTitle: "Falha no registro",
+  registrationNotRegisteredWarning:
+    "Sua passkey foi criada, mas ainda não está registrada. Sem o registro, ela não pode ser recuperada em outros dispositivos.",
+  retry: "Tentar novamente",
+  cancel: "Cancelar",
+  close: "Fechar",
+  passkeyNotRegisteredTitle: "Passkey não registrada",
+
+  createPasskeyTitle: "Crie sua passkey",
+  createPasskeySubtitle: "Confirme no seu dispositivo quando solicitado",
+  registeringTitle: "Registrando sua passkey",
+  registeringSubtitle: "Publicando a chave pública na NEAR…",
+  approveTxTitle: "Aprovar transação",
+  approveTxSubtitle: "Confirme no seu dispositivo para aprovar.",
+  approveBtn: "Aprovar",
+  signMsgTitle: "Confirmar assinatura",
+  signMsgSubtitle: "Confirme no seu dispositivo para assinar esta mensagem.",
+  signBtn: "Assinar",
+  confirmSignInTitle: "Confirmar entrada",
+  confirmSignInSubtitle: "Confirme no seu dispositivo para entrar.",
+  confirmSignInBtn: "Entrar",
+  confirmSignInAgainSubtitle: "Confirme mais uma vez no seu dispositivo.",
+  lookingUpTitle: "Procurando sua conta",
+  lookingUpSubtitle: "Localizando sua passkey na NEAR…",
+  signingInTitle: "Entrando",
+  signingInFinalizeSubtitle: "Finalizando sua conta na NEAR…",
+  signingInSetupSubtitle: "Configurando sua conta na NEAR…",
+  usePasskeyTitle: "Use sua passkey",
+  usePasskeySubtitle: "Escolha uma passkey e confirme no seu dispositivo",
+
+  errOrphan:
+    "Seu dispositivo criou uma passkey que esta carteira não pode usar. Abra as configurações de senhas / passkeys do seu dispositivo, exclua a passkey que você acabou de criar para este site e tente novamente em outro dispositivo.",
+  errNonResident:
+    "Seu dispositivo criou uma passkey que não poderá ser recuperada depois (não é uma chave residente). Tente outro dispositivo ou use seu telefone para criar a passkey.",
+  errNotVerified:
+    "Seu dispositivo entrou sem verificar que é você. Configure Face ID, impressão digital, bloqueio de tela ou PIN de chave de segurança e tente novamente.",
+  errWrongPasskey:
+    "Essa era uma passkey diferente da desta conta. Tente novamente e escolha a passkey desta conta.",
+  errNotRegistered:
+    "Esta passkey não está registrada no registro de passkeys (ou as chaves registradas não correspondem à sua assinatura). Crie-a novamente no dispositivo original ou registre-a primeiro.",
+  errRegistrationCancelled: "Registro da passkey cancelado: {message}",
+  errNotSignedIn: "Carteira não conectada",
+
+  waCancelledCreate:
+    "A criação da passkey foi cancelada ou expirou. Tente novamente e confirme no seu dispositivo quando solicitado.",
+  waCancelledGet:
+    "A entrada foi cancelada ou expirou. Tente novamente e confirme no seu dispositivo quando solicitado.",
+  waDuplicate: "Você já tem uma conta neste dispositivo. Escolha «Entrar» para usá-la.",
+  waNotSupportedCreate:
+    "Este dispositivo não pode criar o tipo de passkey que esta carteira precisa. Tente outro dispositivo ou use seu telefone para ler o QR code de entrada.",
+  waNotSupportedGet:
+    "Este dispositivo não pode entrar com uma passkey. Tente o dispositivo onde você a criou ou use seu telefone para ler o QR code.",
+  waConstraintCreate:
+    "Seu dispositivo ou chave de segurança precisa de um PIN, impressão digital ou desbloqueio facial configurado antes de criar esta passkey. Adicione um nas configurações do dispositivo e tente novamente.",
+  waConstraintGet:
+    "Sua chave de segurança precisa de um PIN ou seu dispositivo precisa de um bloqueio de tela para entrar. Configure e tente novamente.",
+  waSecurity:
+    "Este site não tem permissão para usar passkeys agora. Verifique se você está no site correto e se ele está carregado por uma conexão segura (https).",
+  waGenericCreate:
+    "Algo deu errado ao criar sua passkey. Tente novamente e verifique se o bloqueio de tela do seu dispositivo (Face ID, impressão digital ou PIN) está configurado.",
+  waGenericGet:
+    "Algo deu errado ao entrar com sua passkey. Tente novamente no dispositivo onde você a criou.",
+};
+
+const de: Catalog = {
+  appTitle: "Trezu",
+  appTagline: "Kein Passwort, keine Seed-Phrase — nur dein Gerät.",
+  signUp: "Registrieren",
+  signIn: "Anmelden",
+
+  addAccountTitle: "Weiteres Konto hinzufügen",
+  addAccountSubtitle: "Gib einen Benutzernamen oder eine E-Mail ein, um deine Konten zu unterscheiden",
+  usernameOrEmailPlaceholder: "Benutzername oder E-Mail",
+  continue: "Weiter",
+
+  registrationFailedTitle: "Registrierung fehlgeschlagen",
+  registrationNotRegisteredWarning:
+    "Dein Passkey wurde erstellt, ist aber noch nicht registriert. Ohne Registrierung kann er auf anderen Geräten nicht wiederhergestellt werden.",
+  retry: "Erneut versuchen",
+  cancel: "Abbrechen",
+  close: "Schließen",
+  passkeyNotRegisteredTitle: "Passkey nicht registriert",
+
+  createPasskeyTitle: "Erstelle deinen Passkey",
+  createPasskeySubtitle: "Bestätige auf deinem Gerät, wenn du dazu aufgefordert wirst",
+  registeringTitle: "Passkey wird registriert",
+  registeringSubtitle: "Sein öffentlicher Schlüssel wird auf NEAR veröffentlicht…",
+  approveTxTitle: "Transaktion genehmigen",
+  approveTxSubtitle: "Bestätige auf deinem Gerät, um zu genehmigen.",
+  approveBtn: "Genehmigen",
+  signMsgTitle: "Signatur bestätigen",
+  signMsgSubtitle: "Bestätige auf deinem Gerät, um diese Nachricht zu signieren.",
+  signBtn: "Signieren",
+  confirmSignInTitle: "Anmeldung bestätigen",
+  confirmSignInSubtitle: "Bestätige auf deinem Gerät, um dich anzumelden.",
+  confirmSignInBtn: "Anmelden",
+  confirmSignInAgainSubtitle: "Bestätige noch einmal auf deinem Gerät.",
+  lookingUpTitle: "Dein Konto wird gesucht",
+  lookingUpSubtitle: "Dein Passkey wird auf NEAR ermittelt…",
+  signingInTitle: "Du wirst angemeldet",
+  signingInFinalizeSubtitle: "Dein Konto wird auf NEAR fertiggestellt…",
+  signingInSetupSubtitle: "Dein Konto wird auf NEAR eingerichtet…",
+  usePasskeyTitle: "Verwende deinen Passkey",
+  usePasskeySubtitle: "Wähle einen Passkey und bestätige auf deinem Gerät",
+
+  errOrphan:
+    "Dein Gerät hat einen Passkey erstellt, den diese Wallet nicht verwenden kann. Öffne die Passwort-/Passkey-Einstellungen deines Geräts, lösche den soeben für diese Website erstellten Passkey und versuche es auf einem anderen Gerät erneut.",
+  errNonResident:
+    "Dein Gerät hat einen Passkey erstellt, der später nicht wiederhergestellt werden kann (kein residenter Schlüssel). Versuche ein anderes Gerät oder erstelle den Passkey mit deinem Telefon.",
+  errNotVerified:
+    "Dein Gerät hat sich angemeldet, ohne zu bestätigen, dass du es bist. Richte Face ID, einen Fingerabdruck, eine Bildschirmsperre oder eine Sicherheitsschlüssel-PIN ein und versuche es erneut.",
+  errWrongPasskey:
+    "Das war ein anderer Passkey als der dieses Kontos. Versuche es erneut und wähle den Passkey dieses Kontos.",
+  errNotRegistered:
+    "Dieser Passkey ist nicht im Passkey-Register registriert (oder die registrierten Schlüssel passen nicht zu seiner Signatur). Erstelle ihn erneut auf dem ursprünglichen Gerät oder registriere ihn zuerst.",
+  errRegistrationCancelled: "Passkey-Registrierung abgebrochen: {message}",
+  errNotSignedIn: "Nicht in der Wallet angemeldet",
+
+  waCancelledCreate:
+    "Die Passkey-Erstellung wurde abgebrochen oder ist abgelaufen. Versuche es erneut und bestätige auf deinem Gerät, wenn du dazu aufgefordert wirst.",
+  waCancelledGet:
+    "Die Anmeldung wurde abgebrochen oder ist abgelaufen. Versuche es erneut und bestätige auf deinem Gerät, wenn du dazu aufgefordert wirst.",
+  waDuplicate: "Du hast bereits ein Konto auf diesem Gerät. Wähle „Anmelden“, um es zu verwenden.",
+  waNotSupportedCreate:
+    "Dieses Gerät kann den von dieser Wallet benötigten Passkey-Typ nicht erstellen. Versuche ein anderes Gerät oder scanne den Anmelde-QR-Code mit deinem Telefon.",
+  waNotSupportedGet:
+    "Dieses Gerät kann sich nicht mit einem Passkey anmelden. Versuche das Gerät, auf dem du ihn erstellt hast, oder scanne den QR-Code mit deinem Telefon.",
+  waConstraintCreate:
+    "Dein Gerät oder Sicherheitsschlüssel benötigt eine eingerichtete PIN, einen Fingerabdruck oder Face Unlock, bevor dieser Passkey erstellt werden kann. Richte eine in den Geräteeinstellungen ein und versuche es erneut.",
+  waConstraintGet:
+    "Dein Sicherheitsschlüssel benötigt eine PIN oder dein Gerät eine Bildschirmsperre zum Anmelden. Richte sie ein und versuche es erneut.",
+  waSecurity:
+    "Diese Website darf derzeit keine Passkeys verwenden. Stelle sicher, dass du auf der richtigen Website bist und sie über eine sichere Verbindung (https) geladen wurde.",
+  waGenericCreate:
+    "Beim Erstellen deines Passkeys ist ein Fehler aufgetreten. Versuche es erneut und stelle sicher, dass die Bildschirmsperre deines Geräts (Face ID, Fingerabdruck oder PIN) eingerichtet ist.",
+  waGenericGet:
+    "Bei der Anmeldung mit deinem Passkey ist ein Fehler aufgetreten. Versuche es erneut auf dem Gerät, auf dem du ihn erstellt hast.",
+};
+
+const it: Catalog = {
+  appTitle: "Trezu",
+  appTagline: "Nessuna password, nessuna seed phrase — solo il tuo dispositivo.",
+  signUp: "Registrati",
+  signIn: "Accedi",
+
+  addAccountTitle: "Aggiungi un altro account",
+  addAccountSubtitle: "Inserisci un nome utente o un'email per distinguere i tuoi account",
+  usernameOrEmailPlaceholder: "nome utente o email",
+  continue: "Continua",
+
+  registrationFailedTitle: "Registrazione non riuscita",
+  registrationNotRegisteredWarning:
+    "La tua passkey è stata creata ma non è ancora registrata. Senza registrazione non può essere recuperata su altri dispositivi.",
+  retry: "Riprova",
+  cancel: "Annulla",
+  close: "Chiudi",
+  passkeyNotRegisteredTitle: "Passkey non registrata",
+
+  createPasskeyTitle: "Crea la tua passkey",
+  createPasskeySubtitle: "Conferma sul tuo dispositivo quando richiesto",
+  registeringTitle: "Registrazione della passkey",
+  registeringSubtitle: "Pubblicazione della sua chiave pubblica su NEAR…",
+  approveTxTitle: "Approva la transazione",
+  approveTxSubtitle: "Conferma sul tuo dispositivo per approvare.",
+  approveBtn: "Approva",
+  signMsgTitle: "Conferma la firma",
+  signMsgSubtitle: "Conferma sul tuo dispositivo per firmare questo messaggio.",
+  signBtn: "Firma",
+  confirmSignInTitle: "Conferma l'accesso",
+  confirmSignInSubtitle: "Conferma sul tuo dispositivo per accedere.",
+  confirmSignInBtn: "Accedi",
+  confirmSignInAgainSubtitle: "Conferma ancora una volta sul tuo dispositivo.",
+  lookingUpTitle: "Ricerca del tuo account",
+  lookingUpSubtitle: "Individuazione della tua passkey su NEAR…",
+  signingInTitle: "Accesso in corso",
+  signingInFinalizeSubtitle: "Completamento del tuo account su NEAR…",
+  signingInSetupSubtitle: "Configurazione del tuo account su NEAR…",
+  usePasskeyTitle: "Usa la tua passkey",
+  usePasskeySubtitle: "Scegli una passkey e conferma sul tuo dispositivo",
+
+  errOrphan:
+    "Il tuo dispositivo ha creato una passkey che questo wallet non può usare. Apri le impostazioni password / passkey del dispositivo, elimina la passkey appena creata per questo sito e riprova su un altro dispositivo.",
+  errNonResident:
+    "Il tuo dispositivo ha creato una passkey che non potrà essere recuperata in seguito (non è una chiave residente). Prova un altro dispositivo o usa il telefono per creare la passkey.",
+  errNotVerified:
+    "Il tuo dispositivo ha effettuato l'accesso senza verificare la tua identità. Configura Face ID, un'impronta, un blocco schermo o un PIN della chiave di sicurezza e riprova.",
+  errWrongPasskey:
+    "Questa era una passkey diversa da quella di questo account. Riprova e scegli la passkey di questo account.",
+  errNotRegistered:
+    "Questa passkey non è registrata nel registro delle passkey (o le chiavi registrate non corrispondono alla sua firma). Creala di nuovo sul dispositivo originale o registrala prima.",
+  errRegistrationCancelled: "Registrazione della passkey annullata: {message}",
+  errNotSignedIn: "Wallet non connesso",
+
+  waCancelledCreate:
+    "La creazione della passkey è stata annullata o è scaduta. Riprova e conferma sul tuo dispositivo quando richiesto.",
+  waCancelledGet:
+    "L'accesso è stato annullato o è scaduto. Riprova e conferma sul tuo dispositivo quando richiesto.",
+  waDuplicate: "Hai già un account su questo dispositivo. Scegli «Accedi» per usarlo.",
+  waNotSupportedCreate:
+    "Questo dispositivo non può creare il tipo di passkey richiesto da questo wallet. Prova un altro dispositivo o usa il telefono per scansionare il codice QR di accesso.",
+  waNotSupportedGet:
+    "Questo dispositivo non può accedere con una passkey. Prova il dispositivo su cui l'hai creata o usa il telefono per scansionare il codice QR.",
+  waConstraintCreate:
+    "Il tuo dispositivo o la chiave di sicurezza necessita di un PIN, un'impronta o lo sblocco col volto prima di poter creare questa passkey. Aggiungine uno nelle impostazioni del dispositivo e riprova.",
+  waConstraintGet:
+    "La tua chiave di sicurezza necessita di un PIN o il dispositivo di un blocco schermo per accedere. Configuralo e riprova.",
+  waSecurity:
+    "A questo sito al momento non è consentito usare le passkey. Assicurati di essere sul sito corretto e che sia caricato tramite una connessione sicura (https).",
+  waGenericCreate:
+    "Qualcosa è andato storto durante la creazione della passkey. Riprova e assicurati che il blocco schermo del dispositivo (Face ID, impronta o PIN) sia configurato.",
+  waGenericGet:
+    "Qualcosa è andato storto durante l'accesso con la passkey. Riprova sul dispositivo su cui l'hai creata.",
+};
+
+const pl: Catalog = {
+  appTitle: "Trezu",
+  appTagline: "Bez hasła, bez frazy seed — tylko Twoje urządzenie.",
+  signUp: "Zarejestruj się",
+  signIn: "Zaloguj się",
+
+  addAccountTitle: "Dodaj kolejne konto",
+  addAccountSubtitle: "Wpisz nazwę użytkownika lub e-mail, aby rozróżnić konta",
+  usernameOrEmailPlaceholder: "nazwa użytkownika lub e-mail",
+  continue: "Kontynuuj",
+
+  registrationFailedTitle: "Rejestracja nie powiodła się",
+  registrationNotRegisteredWarning:
+    "Twój passkey został utworzony, ale nie jest jeszcze zarejestrowany. Bez rejestracji nie można go odzyskać na innych urządzeniach.",
+  retry: "Ponów",
+  cancel: "Anuluj",
+  close: "Zamknij",
+  passkeyNotRegisteredTitle: "Passkey nie zarejestrowany",
+
+  createPasskeyTitle: "Utwórz swój passkey",
+  createPasskeySubtitle: "Potwierdź na urządzeniu, gdy pojawi się prośba",
+  registeringTitle: "Rejestrowanie passkey",
+  registeringSubtitle: "Publikowanie jego klucza publicznego w NEAR…",
+  approveTxTitle: "Zatwierdź transakcję",
+  approveTxSubtitle: "Potwierdź na urządzeniu, aby zatwierdzić.",
+  approveBtn: "Zatwierdź",
+  signMsgTitle: "Potwierdź podpis",
+  signMsgSubtitle: "Potwierdź na urządzeniu, aby podpisać tę wiadomość.",
+  signBtn: "Podpisz",
+  confirmSignInTitle: "Potwierdź logowanie",
+  confirmSignInSubtitle: "Potwierdź na urządzeniu, aby się zalogować.",
+  confirmSignInBtn: "Zaloguj się",
+  confirmSignInAgainSubtitle: "Potwierdź jeszcze raz na urządzeniu.",
+  lookingUpTitle: "Wyszukiwanie Twojego konta",
+  lookingUpSubtitle: "Ustalanie Twojego passkey w NEAR…",
+  signingInTitle: "Logowanie",
+  signingInFinalizeSubtitle: "Finalizowanie Twojego konta w NEAR…",
+  signingInSetupSubtitle: "Konfigurowanie Twojego konta w NEAR…",
+  usePasskeyTitle: "Użyj swojego passkey",
+  usePasskeySubtitle: "Wybierz passkey i potwierdź na urządzeniu",
+
+  errOrphan:
+    "Twoje urządzenie utworzyło passkey, którego ten portfel nie może użyć. Otwórz ustawienia haseł / passkey na urządzeniu, usuń passkey właśnie utworzony dla tej witryny, a następnie spróbuj ponownie na innym urządzeniu.",
+  errNonResident:
+    "Twoje urządzenie utworzyło passkey, którego nie będzie można później odzyskać (to nie jest klucz rezydentny). Wypróbuj inne urządzenie lub utwórz passkey za pomocą telefonu.",
+  errNotVerified:
+    "Twoje urządzenie zalogowało się bez potwierdzenia, że to Ty. Skonfiguruj Face ID, odcisk palca, blokadę ekranu lub PIN klucza bezpieczeństwa i spróbuj ponownie.",
+  errWrongPasskey:
+    "To był inny passkey niż dla tego konta. Spróbuj ponownie i wybierz passkey tego konta.",
+  errNotRegistered:
+    "Ten passkey nie jest zarejestrowany w rejestrze passkey (lub zarejestrowane klucze nie pasują do jego podpisu). Utwórz go ponownie na pierwotnym urządzeniu lub najpierw zarejestruj.",
+  errRegistrationCancelled: "Rejestracja passkey anulowana: {message}",
+  errNotSignedIn: "Nie zalogowano do portfela",
+
+  waCancelledCreate:
+    "Tworzenie passkey zostało anulowane lub upłynął limit czasu. Spróbuj ponownie i potwierdź na urządzeniu, gdy pojawi się prośba.",
+  waCancelledGet:
+    "Logowanie zostało anulowane lub upłynął limit czasu. Spróbuj ponownie i potwierdź na urządzeniu, gdy pojawi się prośba.",
+  waDuplicate: "Masz już konto na tym urządzeniu. Wybierz „Zaloguj się”, aby go użyć.",
+  waNotSupportedCreate:
+    "To urządzenie nie może utworzyć typu passkey wymaganego przez ten portfel. Wypróbuj inne urządzenie lub zeskanuj telefonem kod QR logowania.",
+  waNotSupportedGet:
+    "To urządzenie nie może zalogować się za pomocą passkey. Wypróbuj urządzenie, na którym go utworzyłeś, lub zeskanuj telefonem kod QR.",
+  waConstraintCreate:
+    "Twoje urządzenie lub klucz bezpieczeństwa wymaga skonfigurowanego kodu PIN, odcisku palca lub odblokowania twarzą, zanim będzie mogło utworzyć ten passkey. Dodaj je w ustawieniach urządzenia i spróbuj ponownie.",
+  waConstraintGet:
+    "Twój klucz bezpieczeństwa wymaga kodu PIN, a urządzenie blokady ekranu, aby się zalogować. Skonfiguruj to i spróbuj ponownie.",
+  waSecurity:
+    "Ta witryna nie może teraz używać passkey. Upewnij się, że jesteś na właściwej witrynie i że jest ona załadowana przez bezpieczne połączenie (https).",
+  waGenericCreate:
+    "Coś poszło nie tak podczas tworzenia passkey. Spróbuj ponownie i upewnij się, że blokada ekranu urządzenia (Face ID, odcisk palca lub PIN) jest skonfigurowana.",
+  waGenericGet:
+    "Coś poszło nie tak podczas logowania za pomocą passkey. Spróbuj ponownie na urządzeniu, na którym go utworzyłeś.",
+};
+
+const nl: Catalog = {
+  appTitle: "Trezu",
+  appTagline: "Geen wachtwoord, geen seed-zin — alleen je apparaat.",
+  signUp: "Registreren",
+  signIn: "Inloggen",
+
+  addAccountTitle: "Nog een account toevoegen",
+  addAccountSubtitle: "Voer een gebruikersnaam of e-mail in om je accounts te onderscheiden",
+  usernameOrEmailPlaceholder: "gebruikersnaam of e-mail",
+  continue: "Doorgaan",
+
+  registrationFailedTitle: "Registratie mislukt",
+  registrationNotRegisteredWarning:
+    "Je passkey is aangemaakt maar nog niet geregistreerd. Zonder registratie kan hij niet op andere apparaten worden hersteld.",
+  retry: "Opnieuw proberen",
+  cancel: "Annuleren",
+  close: "Sluiten",
+  passkeyNotRegisteredTitle: "Passkey niet geregistreerd",
+
+  createPasskeyTitle: "Maak je passkey aan",
+  createPasskeySubtitle: "Bevestig op je apparaat wanneer daarom wordt gevraagd",
+  registeringTitle: "Je passkey wordt geregistreerd",
+  registeringSubtitle: "De openbare sleutel wordt op NEAR gepubliceerd…",
+  approveTxTitle: "Transactie goedkeuren",
+  approveTxSubtitle: "Bevestig op je apparaat om goed te keuren.",
+  approveBtn: "Goedkeuren",
+  signMsgTitle: "Handtekening bevestigen",
+  signMsgSubtitle: "Bevestig op je apparaat om dit bericht te ondertekenen.",
+  signBtn: "Ondertekenen",
+  confirmSignInTitle: "Inloggen bevestigen",
+  confirmSignInSubtitle: "Bevestig op je apparaat om in te loggen.",
+  confirmSignInBtn: "Inloggen",
+  confirmSignInAgainSubtitle: "Bevestig nog een keer op je apparaat.",
+  lookingUpTitle: "Je account wordt gezocht",
+  lookingUpSubtitle: "Je passkey wordt op NEAR opgezocht…",
+  signingInTitle: "Je wordt ingelogd",
+  signingInFinalizeSubtitle: "Je account wordt op NEAR afgerond…",
+  signingInSetupSubtitle: "Je account wordt op NEAR ingesteld…",
+  usePasskeyTitle: "Gebruik je passkey",
+  usePasskeySubtitle: "Kies een passkey en bevestig op je apparaat",
+
+  errOrphan:
+    "Je apparaat heeft een passkey aangemaakt die deze wallet niet kan gebruiken. Open de wachtwoord-/passkey-instellingen van je apparaat, verwijder de passkey die je zojuist voor deze site hebt aangemaakt en probeer het opnieuw op een ander apparaat.",
+  errNonResident:
+    "Je apparaat heeft een passkey aangemaakt die later niet kan worden hersteld (het is geen resident key). Probeer een ander apparaat of maak de passkey met je telefoon aan.",
+  errNotVerified:
+    "Je apparaat is ingelogd zonder te verifiëren dat jij het bent. Stel Face ID, een vingerafdruk, een schermvergrendeling of een pincode voor een beveiligingssleutel in en probeer het opnieuw.",
+  errWrongPasskey:
+    "Dat was een andere passkey dan die van dit account. Probeer het opnieuw en kies de passkey van dit account.",
+  errNotRegistered:
+    "Deze passkey is niet geregistreerd in het passkey-register (of de geregistreerde sleutels komen niet overeen met de handtekening). Maak hem opnieuw aan op het oorspronkelijke apparaat of registreer hem eerst.",
+  errRegistrationCancelled: "Passkey-registratie geannuleerd: {message}",
+  errNotSignedIn: "Niet ingelogd in wallet",
+
+  waCancelledCreate:
+    "Het aanmaken van de passkey is geannuleerd of verlopen. Probeer het opnieuw en bevestig op je apparaat wanneer daarom wordt gevraagd.",
+  waCancelledGet:
+    "Het inloggen is geannuleerd of verlopen. Probeer het opnieuw en bevestig op je apparaat wanneer daarom wordt gevraagd.",
+  waDuplicate: "Je hebt al een account op dit apparaat. Kies „Inloggen” om het te gebruiken.",
+  waNotSupportedCreate:
+    "Dit apparaat kan niet het type passkey aanmaken dat deze wallet nodig heeft. Probeer een ander apparaat of scan de inlog-QR-code met je telefoon.",
+  waNotSupportedGet:
+    "Dit apparaat kan niet inloggen met een passkey. Probeer het apparaat waarop je hem hebt aangemaakt of scan de QR-code met je telefoon.",
+  waConstraintCreate:
+    "Je apparaat of beveiligingssleutel heeft een ingestelde pincode, vingerafdruk of gezichtsontgrendeling nodig voordat deze passkey kan worden aangemaakt. Voeg er een toe in de apparaatinstellingen en probeer het opnieuw.",
+  waConstraintGet:
+    "Je beveiligingssleutel heeft een pincode nodig of je apparaat een schermvergrendeling om in te loggen. Stel het in en probeer het opnieuw.",
+  waSecurity:
+    "Deze site mag momenteel geen passkeys gebruiken. Zorg dat je op de juiste website bent en dat deze via een beveiligde verbinding (https) is geladen.",
+  waGenericCreate:
+    "Er ging iets mis bij het aanmaken van je passkey. Probeer het opnieuw en zorg dat de schermvergrendeling van je apparaat (Face ID, vingerafdruk of pincode) is ingesteld.",
+  waGenericGet:
+    "Er ging iets mis bij het inloggen met je passkey. Probeer het opnieuw op het apparaat waarop je hem hebt aangemaakt.",
+};
+
+const tr: Catalog = {
+  appTitle: "Trezu",
+  appTagline: "Parola yok, kurtarma ifadesi yok — yalnızca cihazınız.",
+  signUp: "Kaydol",
+  signIn: "Oturum aç",
+
+  addAccountTitle: "Başka bir hesap ekle",
+  addAccountSubtitle: "Hesaplarınızı ayırt etmek için bir kullanıcı adı veya e-posta girin",
+  usernameOrEmailPlaceholder: "kullanıcı adı veya e-posta",
+  continue: "Devam",
+
+  registrationFailedTitle: "Kayıt başarısız",
+  registrationNotRegisteredWarning:
+    "Geçiş anahtarınız oluşturuldu ancak henüz kaydedilmedi. Kayıt olmadan başka cihazlarda kurtarılamaz.",
+  retry: "Yeniden dene",
+  cancel: "İptal",
+  close: "Kapat",
+  passkeyNotRegisteredTitle: "Geçiş anahtarı kayıtlı değil",
+
+  createPasskeyTitle: "Geçiş anahtarınızı oluşturun",
+  createPasskeySubtitle: "İstendiğinde cihazınızla onaylayın",
+  registeringTitle: "Geçiş anahtarınız kaydediliyor",
+  registeringSubtitle: "Genel anahtarı NEAR'da yayımlanıyor…",
+  approveTxTitle: "İşlemi onayla",
+  approveTxSubtitle: "Onaylamak için cihazınızla doğrulayın.",
+  approveBtn: "Onayla",
+  signMsgTitle: "İmzayı onayla",
+  signMsgSubtitle: "Bu mesajı imzalamak için cihazınızla doğrulayın.",
+  signBtn: "İmzala",
+  confirmSignInTitle: "Oturum açmayı onayla",
+  confirmSignInSubtitle: "Oturum açmak için cihazınızla doğrulayın.",
+  confirmSignInBtn: "Oturum aç",
+  confirmSignInAgainSubtitle: "Cihazınızla bir kez daha doğrulayın.",
+  lookingUpTitle: "Hesabınız aranıyor",
+  lookingUpSubtitle: "Geçiş anahtarınız NEAR'da çözümleniyor…",
+  signingInTitle: "Oturumunuz açılıyor",
+  signingInFinalizeSubtitle: "Hesabınız NEAR'da tamamlanıyor…",
+  signingInSetupSubtitle: "Hesabınız NEAR'da kuruluyor…",
+  usePasskeyTitle: "Geçiş anahtarınızı kullanın",
+  usePasskeySubtitle: "Bir geçiş anahtarı seçin ve cihazınızla onaylayın",
+
+  errOrphan:
+    "Cihazınız bu cüzdanın kullanamayacağı bir geçiş anahtarı oluşturdu. Cihazınızın parola / geçiş anahtarı ayarlarını açın, bu site için az önce oluşturduğunuz geçiş anahtarını silin, ardından başka bir cihazda yeniden deneyin.",
+  errNonResident:
+    "Cihazınız daha sonra kurtarılamayacak bir geçiş anahtarı oluşturdu (yerleşik anahtar değil). Başka bir cihaz deneyin veya geçiş anahtarını telefonunuzla oluşturun.",
+  errNotVerified:
+    "Cihazınız kimliğinizi doğrulamadan oturum açtı. Lütfen Face ID, parmak izi, ekran kilidi veya bir güvenlik anahtarı PIN'i ayarlayın, ardından yeniden deneyin.",
+  errWrongPasskey:
+    "Bu, bu hesaptan farklı bir geçiş anahtarıydı. Yeniden deneyin ve bu hesabın geçiş anahtarını seçin.",
+  errNotRegistered:
+    "Bu geçiş anahtarı geçiş anahtarı kayıt defterinde kayıtlı değil (veya kayıtlı anahtarlar imzasıyla eşleşmiyor). Orijinal cihazda yeniden oluşturun veya önce kaydedin.",
+  errRegistrationCancelled: "Geçiş anahtarı kaydı iptal edildi: {message}",
+  errNotSignedIn: "Cüzdanda oturum açılmadı",
+
+  waCancelledCreate:
+    "Geçiş anahtarı oluşturma iptal edildi veya zaman aşımına uğradı. Yeniden deneyin ve istendiğinde cihazınızla onaylayın.",
+  waCancelledGet:
+    "Oturum açma iptal edildi veya zaman aşımına uğradı. Yeniden deneyin ve istendiğinde cihazınızla onaylayın.",
+  waDuplicate: "Bu cihazda zaten bir hesabınız var. Kullanmak için «Oturum aç»ı seçin.",
+  waNotSupportedCreate:
+    "Bu cihaz bu cüzdanın ihtiyaç duyduğu türde geçiş anahtarı oluşturamaz. Başka bir cihaz deneyin veya oturum açma QR kodunu telefonunuzla tarayın.",
+  waNotSupportedGet:
+    "Bu cihaz geçiş anahtarıyla oturum açamaz. Onu oluşturduğunuz cihazı deneyin veya QR kodunu telefonunuzla tarayın.",
+  waConstraintCreate:
+    "Bu geçiş anahtarını oluşturabilmesi için cihazınızın veya güvenlik anahtarınızın ayarlanmış bir PIN, parmak izi veya yüz kilidine ihtiyacı var. Cihaz ayarlarından birini ekleyin ve yeniden deneyin.",
+  waConstraintGet:
+    "Oturum açmak için güvenlik anahtarınızın bir PIN'e veya cihazınızın bir ekran kilidine ihtiyacı var. Ayarlayın ve yeniden deneyin.",
+  waSecurity:
+    "Bu sitenin şu anda geçiş anahtarı kullanmasına izin verilmiyor. Doğru web sitesinde olduğunuzdan ve güvenli (https) bir bağlantı üzerinden yüklendiğinden emin olun.",
+  waGenericCreate:
+    "Geçiş anahtarınız oluşturulurken bir sorun oluştu. Yeniden deneyin ve cihazınızın ekran kilidinin (Face ID, parmak izi veya PIN) ayarlı olduğundan emin olun.",
+  waGenericGet:
+    "Geçiş anahtarınızla oturum açılırken bir sorun oluştu. Onu oluşturduğunuz cihazda yeniden deneyin.",
+};
+
+const id: Catalog = {
+  appTitle: "Trezu",
+  appTagline: "Tanpa kata sandi, tanpa frasa pemulihan — cukup perangkat Anda.",
+  signUp: "Daftar",
+  signIn: "Masuk",
+
+  addAccountTitle: "Tambah akun lain",
+  addAccountSubtitle: "Masukkan nama pengguna atau email untuk membedakan akun Anda",
+  usernameOrEmailPlaceholder: "nama pengguna atau email",
+  continue: "Lanjutkan",
+
+  registrationFailedTitle: "Pendaftaran gagal",
+  registrationNotRegisteredWarning:
+    "Passkey Anda telah dibuat tetapi belum terdaftar. Tanpa pendaftaran, passkey tidak dapat dipulihkan di perangkat lain.",
+  retry: "Coba lagi",
+  cancel: "Batal",
+  close: "Tutup",
+  passkeyNotRegisteredTitle: "Passkey belum terdaftar",
+
+  createPasskeyTitle: "Buat passkey Anda",
+  createPasskeySubtitle: "Konfirmasi di perangkat Anda saat diminta",
+  registeringTitle: "Mendaftarkan passkey Anda",
+  registeringSubtitle: "Menerbitkan kunci publiknya di NEAR…",
+  approveTxTitle: "Setujui transaksi",
+  approveTxSubtitle: "Konfirmasi di perangkat Anda untuk menyetujui.",
+  approveBtn: "Setujui",
+  signMsgTitle: "Konfirmasi tanda tangan",
+  signMsgSubtitle: "Konfirmasi di perangkat Anda untuk menandatangani pesan ini.",
+  signBtn: "Tanda tangani",
+  confirmSignInTitle: "Konfirmasi masuk",
+  confirmSignInSubtitle: "Konfirmasi di perangkat Anda untuk masuk.",
+  confirmSignInBtn: "Masuk",
+  confirmSignInAgainSubtitle: "Konfirmasi sekali lagi di perangkat Anda.",
+  lookingUpTitle: "Mencari akun Anda",
+  lookingUpSubtitle: "Menemukan passkey Anda di NEAR…",
+  signingInTitle: "Memasukkan Anda",
+  signingInFinalizeSubtitle: "Menyelesaikan akun Anda di NEAR…",
+  signingInSetupSubtitle: "Menyiapkan akun Anda di NEAR…",
+  usePasskeyTitle: "Gunakan passkey Anda",
+  usePasskeySubtitle: "Pilih passkey dan konfirmasi di perangkat Anda",
+
+  errOrphan:
+    "Perangkat Anda membuat passkey yang tidak dapat digunakan dompet ini. Buka pengaturan kata sandi / passkey perangkat Anda, hapus passkey yang baru saja Anda buat untuk situs ini, lalu coba lagi di perangkat lain.",
+  errNonResident:
+    "Perangkat Anda membuat passkey yang tidak dapat dipulihkan nanti (bukan kunci residen). Coba perangkat lain atau gunakan ponsel Anda untuk membuat passkey.",
+  errNotVerified:
+    "Perangkat Anda masuk tanpa memverifikasi bahwa itu Anda. Silakan atur Face ID, sidik jari, kunci layar, atau PIN kunci keamanan, lalu coba lagi.",
+  errWrongPasskey:
+    "Itu passkey yang berbeda dari akun ini. Coba lagi dan pilih passkey akun ini.",
+  errNotRegistered:
+    "Passkey ini tidak terdaftar di registri passkey (atau kunci terdaftar tidak cocok dengan tanda tangannya). Buat lagi di perangkat asli atau daftarkan terlebih dahulu.",
+  errRegistrationCancelled: "Pendaftaran passkey dibatalkan: {message}",
+  errNotSignedIn: "Belum masuk ke dompet",
+
+  waCancelledCreate:
+    "Pembuatan passkey dibatalkan atau kedaluwarsa. Coba lagi dan konfirmasi di perangkat Anda saat diminta.",
+  waCancelledGet:
+    "Masuk dibatalkan atau kedaluwarsa. Coba lagi dan konfirmasi di perangkat Anda saat diminta.",
+  waDuplicate: "Anda sudah memiliki akun di perangkat ini. Pilih «Masuk» untuk menggunakannya.",
+  waNotSupportedCreate:
+    "Perangkat ini tidak dapat membuat jenis passkey yang dibutuhkan dompet ini. Coba perangkat lain, atau gunakan ponsel Anda untuk memindai kode QR masuk.",
+  waNotSupportedGet:
+    "Perangkat ini tidak dapat masuk dengan passkey. Coba perangkat tempat Anda membuatnya, atau gunakan ponsel Anda untuk memindai kode QR.",
+  waConstraintCreate:
+    "Perangkat atau kunci keamanan Anda memerlukan PIN, sidik jari, atau buka kunci wajah yang telah diatur sebelum dapat membuat passkey ini. Tambahkan salah satunya di pengaturan perangkat dan coba lagi.",
+  waConstraintGet:
+    "Kunci keamanan Anda memerlukan PIN atau perangkat Anda memerlukan kunci layar untuk masuk. Atur dan coba lagi.",
+  waSecurity:
+    "Situs ini saat ini tidak diizinkan menggunakan passkey. Pastikan Anda berada di situs web yang benar dan dimuat melalui koneksi aman (https).",
+  waGenericCreate:
+    "Terjadi kesalahan saat membuat passkey Anda. Coba lagi, dan pastikan kunci layar perangkat Anda (Face ID, sidik jari, atau PIN) telah diatur.",
+  waGenericGet:
+    "Terjadi kesalahan saat masuk dengan passkey Anda. Coba lagi di perangkat tempat Anda membuatnya.",
+};
+
+const vi: Catalog = {
+  appTitle: "Trezu",
+  appTagline: "Không mật khẩu, không cụm từ khôi phục — chỉ thiết bị của bạn.",
+  signUp: "Đăng ký",
+  signIn: "Đăng nhập",
+
+  addAccountTitle: "Thêm tài khoản khác",
+  addAccountSubtitle: "Nhập tên người dùng hoặc email để phân biệt các tài khoản",
+  usernameOrEmailPlaceholder: "tên người dùng hoặc email",
+  continue: "Tiếp tục",
+
+  registrationFailedTitle: "Đăng ký thất bại",
+  registrationNotRegisteredWarning:
+    "Passkey của bạn đã được tạo nhưng chưa được đăng ký. Nếu không đăng ký, không thể khôi phục nó trên các thiết bị khác.",
+  retry: "Thử lại",
+  cancel: "Hủy",
+  close: "Đóng",
+  passkeyNotRegisteredTitle: "Passkey chưa được đăng ký",
+
+  createPasskeyTitle: "Tạo passkey của bạn",
+  createPasskeySubtitle: "Xác nhận trên thiết bị khi được yêu cầu",
+  registeringTitle: "Đang đăng ký passkey của bạn",
+  registeringSubtitle: "Đang công bố khóa công khai của nó trên NEAR…",
+  approveTxTitle: "Phê duyệt giao dịch",
+  approveTxSubtitle: "Xác nhận trên thiết bị để phê duyệt.",
+  approveBtn: "Phê duyệt",
+  signMsgTitle: "Xác nhận chữ ký",
+  signMsgSubtitle: "Xác nhận trên thiết bị để ký tin nhắn này.",
+  signBtn: "Ký",
+  confirmSignInTitle: "Xác nhận đăng nhập",
+  confirmSignInSubtitle: "Xác nhận trên thiết bị để đăng nhập.",
+  confirmSignInBtn: "Đăng nhập",
+  confirmSignInAgainSubtitle: "Xác nhận thêm một lần nữa trên thiết bị.",
+  lookingUpTitle: "Đang tìm tài khoản của bạn",
+  lookingUpSubtitle: "Đang xác định passkey của bạn trên NEAR…",
+  signingInTitle: "Đang đăng nhập",
+  signingInFinalizeSubtitle: "Đang hoàn tất tài khoản của bạn trên NEAR…",
+  signingInSetupSubtitle: "Đang thiết lập tài khoản của bạn trên NEAR…",
+  usePasskeyTitle: "Dùng passkey của bạn",
+  usePasskeySubtitle: "Chọn một passkey và xác nhận trên thiết bị",
+
+  errOrphan:
+    "Thiết bị của bạn đã tạo một passkey mà ví này không thể dùng. Vui lòng mở cài đặt mật khẩu / passkey của thiết bị, xóa passkey bạn vừa tạo cho trang này, rồi thử lại trên thiết bị khác.",
+  errNonResident:
+    "Thiết bị của bạn đã tạo một passkey không thể khôi phục sau này (không phải khóa thường trú). Hãy thử thiết bị khác hoặc dùng điện thoại để tạo passkey.",
+  errNotVerified:
+    "Thiết bị của bạn đã đăng nhập mà không xác minh danh tính. Vui lòng thiết lập Face ID, vân tay, khóa màn hình hoặc mã PIN khóa bảo mật, rồi thử lại.",
+  errWrongPasskey:
+    "Đó là một passkey khác với tài khoản này. Vui lòng thử lại và chọn passkey của tài khoản này.",
+  errNotRegistered:
+    "Passkey này chưa được đăng ký trong sổ đăng ký passkey (hoặc các khóa đã đăng ký không khớp với chữ ký của nó). Hãy tạo lại trên thiết bị gốc hoặc đăng ký trước.",
+  errRegistrationCancelled: "Đã hủy đăng ký passkey: {message}",
+  errNotSignedIn: "Chưa đăng nhập ví",
+
+  waCancelledCreate:
+    "Việc tạo passkey đã bị hủy hoặc hết thời gian. Vui lòng thử lại và xác nhận trên thiết bị khi được yêu cầu.",
+  waCancelledGet:
+    "Việc đăng nhập đã bị hủy hoặc hết thời gian. Vui lòng thử lại và xác nhận trên thiết bị khi được yêu cầu.",
+  waDuplicate: "Bạn đã có tài khoản trên thiết bị này. Chọn «Đăng nhập» để dùng nó.",
+  waNotSupportedCreate:
+    "Thiết bị này không thể tạo loại passkey mà ví này cần. Hãy thử thiết bị khác, hoặc dùng điện thoại để quét mã QR đăng nhập.",
+  waNotSupportedGet:
+    "Thiết bị này không thể đăng nhập bằng passkey. Hãy thử thiết bị nơi bạn đã tạo nó, hoặc dùng điện thoại để quét mã QR.",
+  waConstraintCreate:
+    "Thiết bị hoặc khóa bảo mật của bạn cần thiết lập mã PIN, vân tay hoặc mở khóa khuôn mặt trước khi có thể tạo passkey này. Hãy thêm một trong cài đặt thiết bị và thử lại.",
+  waConstraintGet:
+    "Khóa bảo mật của bạn cần mã PIN hoặc thiết bị của bạn cần khóa màn hình để đăng nhập. Hãy thiết lập và thử lại.",
+  waSecurity:
+    "Trang này hiện không được phép dùng passkey. Hãy đảm bảo bạn đang ở đúng trang web và nó được tải qua kết nối an toàn (https).",
+  waGenericCreate:
+    "Đã xảy ra lỗi khi tạo passkey của bạn. Vui lòng thử lại và đảm bảo khóa màn hình thiết bị (Face ID, vân tay hoặc PIN) đã được thiết lập.",
+  waGenericGet:
+    "Đã xảy ra lỗi khi đăng nhập bằng passkey. Vui lòng thử lại trên thiết bị nơi bạn đã tạo nó.",
+};
+
+const ja: Catalog = {
+  appTitle: "Trezu",
+  appTagline: "パスワードもシードフレーズも不要 — あなたのデバイスだけ。",
+  signUp: "新規登録",
+  signIn: "サインイン",
+
+  addAccountTitle: "別のアカウントを追加",
+  addAccountSubtitle: "アカウントを区別するためにユーザー名またはメールを入力してください",
+  usernameOrEmailPlaceholder: "ユーザー名またはメール",
+  continue: "続ける",
+
+  registrationFailedTitle: "登録に失敗しました",
+  registrationNotRegisteredWarning:
+    "パスキーは作成されましたが、まだ登録されていません。登録しないと他のデバイスで復元できません。",
+  retry: "再試行",
+  cancel: "キャンセル",
+  close: "閉じる",
+  passkeyNotRegisteredTitle: "パスキーが登録されていません",
+
+  createPasskeyTitle: "パスキーを作成",
+  createPasskeySubtitle: "求められたらデバイスで確認してください",
+  registeringTitle: "パスキーを登録しています",
+  registeringSubtitle: "公開鍵を NEAR に公開しています…",
+  approveTxTitle: "取引を承認",
+  approveTxSubtitle: "承認するにはデバイスで確認してください。",
+  approveBtn: "承認",
+  signMsgTitle: "署名を確認",
+  signMsgSubtitle: "このメッセージに署名するにはデバイスで確認してください。",
+  signBtn: "署名",
+  confirmSignInTitle: "サインインを確認",
+  confirmSignInSubtitle: "サインインするにはデバイスで確認してください。",
+  confirmSignInBtn: "サインイン",
+  confirmSignInAgainSubtitle: "デバイスでもう一度確認してください。",
+  lookingUpTitle: "アカウントを検索しています",
+  lookingUpSubtitle: "NEAR でパスキーを解決しています…",
+  signingInTitle: "サインインしています",
+  signingInFinalizeSubtitle: "NEAR でアカウントを確定しています…",
+  signingInSetupSubtitle: "NEAR でアカウントを設定しています…",
+  usePasskeyTitle: "パスキーを使用",
+  usePasskeySubtitle: "パスキーを選んでデバイスで確認してください",
+
+  errOrphan:
+    "このウォレットが使用できないパスキーがデバイスで作成されました。デバイスのパスワード／パスキー設定を開き、このサイト用に作成したばかりのパスキーを削除してから、別のデバイスで再試行してください。",
+  errNonResident:
+    "後で復元できないパスキーがデバイスで作成されました（レジデントキーではありません）。別のデバイスを試すか、スマートフォンでパスキーを作成してください。",
+  errNotVerified:
+    "本人確認なしでデバイスがサインインしました。Face ID、指紋、画面ロック、またはセキュリティキーの PIN を設定してから再試行してください。",
+  errWrongPasskey:
+    "このアカウントとは別のパスキーでした。もう一度試して、このアカウントのパスキーを選んでください。",
+  errNotRegistered:
+    "このパスキーはパスキーレジストリに登録されていません（または登録済みの鍵が署名と一致しません）。元のデバイスで作成し直すか、先に登録してください。",
+  errRegistrationCancelled: "パスキーの登録がキャンセルされました: {message}",
+  errNotSignedIn: "ウォレットにサインインしていません",
+
+  waCancelledCreate:
+    "パスキーの作成がキャンセルされたか、タイムアウトしました。もう一度試して、求められたらデバイスで確認してください。",
+  waCancelledGet:
+    "サインインがキャンセルされたか、タイムアウトしました。もう一度試して、求められたらデバイスで確認してください。",
+  waDuplicate: "このデバイスにはすでにアカウントがあります。「サインイン」を選んで使用してください。",
+  waNotSupportedCreate:
+    "このデバイスはこのウォレットに必要な種類のパスキーを作成できません。別のデバイスを試すか、スマートフォンでサインイン用 QR コードをスキャンしてください。",
+  waNotSupportedGet:
+    "このデバイスはパスキーでサインインできません。作成したデバイスを試すか、スマートフォンで QR コードをスキャンしてください。",
+  waConstraintCreate:
+    "このパスキーを作成するには、デバイスまたはセキュリティキーに PIN、指紋、または顔認証の設定が必要です。デバイス設定で追加して再試行してください。",
+  waConstraintGet:
+    "サインインするにはセキュリティキーに PIN、またはデバイスに画面ロックが必要です。設定して再試行してください。",
+  waSecurity:
+    "現在このサイトはパスキーを使用できません。正しいウェブサイトであること、安全な接続（https）で読み込まれていることを確認してください。",
+  waGenericCreate:
+    "パスキーの作成中に問題が発生しました。もう一度試して、デバイスの画面ロック（Face ID、指紋、または PIN）が設定されていることを確認してください。",
+  waGenericGet:
+    "パスキーでのサインイン中に問題が発生しました。作成したデバイスで再試行してください。",
+};
+
+const ko: Catalog = {
+  appTitle: "Trezu",
+  appTagline: "비밀번호도, 시드 문구도 없이 — 당신의 기기만으로.",
+  signUp: "가입",
+  signIn: "로그인",
+
+  addAccountTitle: "다른 계정 추가",
+  addAccountSubtitle: "계정을 구분할 사용자 이름 또는 이메일을 입력하세요",
+  usernameOrEmailPlaceholder: "사용자 이름 또는 이메일",
+  continue: "계속",
+
+  registrationFailedTitle: "등록 실패",
+  registrationNotRegisteredWarning:
+    "패스키가 생성되었지만 아직 등록되지 않았습니다. 등록하지 않으면 다른 기기에서 복구할 수 없습니다.",
+  retry: "다시 시도",
+  cancel: "취소",
+  close: "닫기",
+  passkeyNotRegisteredTitle: "패스키가 등록되지 않음",
+
+  createPasskeyTitle: "패스키 만들기",
+  createPasskeySubtitle: "요청 시 기기에서 확인하세요",
+  registeringTitle: "패스키를 등록하는 중",
+  registeringSubtitle: "공개 키를 NEAR에 게시하는 중…",
+  approveTxTitle: "거래 승인",
+  approveTxSubtitle: "승인하려면 기기에서 확인하세요.",
+  approveBtn: "승인",
+  signMsgTitle: "서명 확인",
+  signMsgSubtitle: "이 메시지에 서명하려면 기기에서 확인하세요.",
+  signBtn: "서명",
+  confirmSignInTitle: "로그인 확인",
+  confirmSignInSubtitle: "로그인하려면 기기에서 확인하세요.",
+  confirmSignInBtn: "로그인",
+  confirmSignInAgainSubtitle: "기기에서 한 번 더 확인하세요.",
+  lookingUpTitle: "계정을 찾는 중",
+  lookingUpSubtitle: "NEAR에서 패스키를 확인하는 중…",
+  signingInTitle: "로그인하는 중",
+  signingInFinalizeSubtitle: "NEAR에서 계정을 마무리하는 중…",
+  signingInSetupSubtitle: "NEAR에서 계정을 설정하는 중…",
+  usePasskeyTitle: "패스키 사용",
+  usePasskeySubtitle: "패스키를 선택하고 기기에서 확인하세요",
+
+  errOrphan:
+    "이 지갑이 사용할 수 없는 패스키가 기기에서 생성되었습니다. 기기의 비밀번호/패스키 설정을 열고 방금 이 사이트에 대해 만든 패스키를 삭제한 다음 다른 기기에서 다시 시도하세요.",
+  errNonResident:
+    "나중에 복구할 수 없는 패스키가 기기에서 생성되었습니다(레지던트 키가 아님). 다른 기기를 사용하거나 휴대폰으로 패스키를 만드세요.",
+  errNotVerified:
+    "기기가 본인 확인 없이 로그인했습니다. Face ID, 지문, 화면 잠금 또는 보안 키 PIN을 설정한 다음 다시 시도하세요.",
+  errWrongPasskey:
+    "이 계정과 다른 패스키였습니다. 다시 시도하고 이 계정의 패스키를 선택하세요.",
+  errNotRegistered:
+    "이 패스키는 패스키 레지스트리에 등록되어 있지 않습니다(또는 등록된 키가 서명과 일치하지 않습니다). 원래 기기에서 다시 만들거나 먼저 등록하세요.",
+  errRegistrationCancelled: "패스키 등록이 취소되었습니다: {message}",
+  errNotSignedIn: "지갑에 로그인하지 않음",
+
+  waCancelledCreate:
+    "패스키 생성이 취소되었거나 시간이 초과되었습니다. 다시 시도하고 요청 시 기기에서 확인하세요.",
+  waCancelledGet:
+    "로그인이 취소되었거나 시간이 초과되었습니다. 다시 시도하고 요청 시 기기에서 확인하세요.",
+  waDuplicate: "이 기기에 이미 계정이 있습니다. 사용하려면 「로그인」을 선택하세요.",
+  waNotSupportedCreate:
+    "이 기기는 이 지갑에 필요한 유형의 패스키를 만들 수 없습니다. 다른 기기를 사용하거나 휴대폰으로 로그인 QR 코드를 스캔하세요.",
+  waNotSupportedGet:
+    "이 기기는 패스키로 로그인할 수 없습니다. 패스키를 만든 기기를 사용하거나 휴대폰으로 QR 코드를 스캔하세요.",
+  waConstraintCreate:
+    "이 패스키를 만들려면 기기 또는 보안 키에 PIN, 지문 또는 얼굴 잠금 해제가 설정되어 있어야 합니다. 기기 설정에서 추가한 다음 다시 시도하세요.",
+  waConstraintGet:
+    "로그인하려면 보안 키에 PIN이, 기기에 화면 잠금이 필요합니다. 설정한 다음 다시 시도하세요.",
+  waSecurity:
+    "이 사이트는 현재 패스키를 사용할 수 없습니다. 올바른 웹사이트에 있고 보안 연결(https)로 로드되었는지 확인하세요.",
+  waGenericCreate:
+    "패스키를 만드는 중 문제가 발생했습니다. 다시 시도하고 기기의 화면 잠금(Face ID, 지문 또는 PIN)이 설정되어 있는지 확인하세요.",
+  waGenericGet:
+    "패스키로 로그인하는 중 문제가 발생했습니다. 패스키를 만든 기기에서 다시 시도하세요.",
+};
+
+const CATALOGS: Record<Lang, Catalog> = {
+  en,
+  zh,
+  hi,
+  es,
+  fr,
+  ar,
+  fa,
+  ru,
+  uk,
+  pt,
+  de,
+  it,
+  pl,
+  nl,
+  tr,
+  id,
+  vi,
+  ja,
+  ko,
+};
 
 /** Keys any locale is missing relative to English (empty when complete). */
 export function missingKeysByLang(): Record<Lang, string[]> {
@@ -401,6 +1515,51 @@ export function missingKeysByLang(): Record<Lang, string[]> {
   return out;
 }
 
+/**
+ * Map an UNsupported base language subtag to the closest supported language.
+ * A user whose locale we don't ship is far better served by a related language
+ * they likely read than by English — e.g. a Belarusian (`be`) user almost
+ * certainly reads Russian, a Malay (`ms`) user reads Indonesian.
+ *
+ * Only unsupported bases belong here; a directly-supported base is used as-is.
+ */
+const LANG_FALLBACKS: Readonly<Record<string, Lang>> = {
+  // Post-Soviet / Central Asia → Russian (widespread lingua franca)
+  be: "ru", // Belarusian
+  kk: "ru", // Kazakh
+  ky: "ru", // Kyrgyz
+  uz: "ru", // Uzbek
+  tk: "ru", // Turkmen
+  hy: "ru", // Armenian
+  mo: "ru", // Moldovan (legacy code)
+  // Turkic close to Turkish
+  az: "tr", // Azerbaijani
+  // Iberian / regional → Spanish
+  ca: "es", // Catalan
+  gl: "es", // Galician
+  eu: "es", // Basque
+  oc: "es", // Occitan
+  // West-Germanic → Dutch
+  af: "nl", // Afrikaans
+  // Malay ↔ Indonesian (mutually intelligible)
+  ms: "id",
+  // Persian varieties → Persian
+  ps: "fa", // Pashto
+  prs: "fa", // Dari
+  // Devanagari / Indo-Aryan neighbours → Hindi
+  ne: "hi", // Nepali
+  mr: "hi", // Marathi
+  gu: "hi", // Gujarati
+  pa: "hi", // Punjabi
+  sa: "hi", // Sanskrit
+  // Arabic-script / Gulf neighbours already covered by `ar` directly
+};
+
+function resolveLang(base: string): Lang | null {
+  if ((SUPPORTED_LANGS as readonly string[]).includes(base)) return base as Lang;
+  return LANG_FALLBACKS[base] ?? null;
+}
+
 function detectLang(): Lang {
   // `navigator` is absent under the node test environment — default to English.
   if (typeof navigator === "undefined") return "en";
@@ -409,7 +1568,8 @@ function detectLang(): Lang {
     nav.languages && nav.languages.length > 0 ? nav.languages : [nav.language || "en"];
   for (const candidate of candidates) {
     const base = candidate.toLowerCase().split("-")[0] ?? "";
-    if ((SUPPORTED_LANGS as readonly string[]).includes(base)) return base as Lang;
+    const resolved = resolveLang(base);
+    if (resolved) return resolved;
   }
   return "en";
 }
@@ -425,6 +1585,16 @@ export function lang(): Lang {
 /** Override the active language (e.g. from a dApp-provided locale). */
 export function setLang(next: Lang): void {
   current = next;
+}
+
+/** Whether the active (or given) language is right-to-left. */
+export function isRtl(l: Lang = lang()): boolean {
+  return RTL_LANGS.has(l);
+}
+
+/** `"rtl"` | `"ltr"` for the active (or given) language — set on the dialog. */
+export function dir(l: Lang = lang()): "rtl" | "ltr" {
+  return isRtl(l) ? "rtl" : "ltr";
 }
 
 /**
