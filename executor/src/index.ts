@@ -239,35 +239,57 @@ async function rawWebauthnGet(
 }
 
 /**
+ * Desktop Edge (UA token `Edg/`; NOT Android `EdgA/` / iOS `EdgiOS/`, whose
+ * providers behave normally). Edge's Microsoft Password Manager passkey
+ * provider performs the biometric on a *targeted* get but returns UV=0 (a
+ * provider bug); only a *discovery* get sets UV correctly there.
+ */
+function isDesktopEdge(): boolean {
+  return typeof navigator !== "undefined" && /\bEdg\//.test(navigator.userAgent);
+}
+
+/**
  * Get a user-verified assertion.
  *
- * When the credential is known we try a *targeted* get first (`allowCredentials`),
- * which goes straight to the biometric on platforms that verify (Apple /
- * Android / Windows Hello TPM). But Edge's Microsoft Password Manager completes
- * a targeted assertion *silently* against an already-unlocked vault without
- * re-verifying, returning UV=0. If that happens, retry once via *discovery*
- * (no `allowCredentials`) — which forces the OS account chooser + Windows Hello,
- * and does verify — then require the credential the user picks to match the one
- * we intended.
+ * When the credential is known we normally do a *targeted* get
+ * (`allowCredentials`), which goes straight to the biometric on platforms that
+ * verify (Apple / Android / Windows Hello TPM). Two exceptions push us to a
+ * *discovery* get (no `allowCredentials`, which forces the OS account chooser +
+ * verification and reliably sets UV):
+ *   - On desktop Edge we go discovery FIRST, because a targeted get there runs
+ *     the biometric but returns UV=0 — trying targeted first would prompt the
+ *     biometric twice (targeted, then the discovery retry).
+ *   - On any other platform, if the targeted assertion comes back
+ *     user-presence-only, we retry once via discovery as a fallback.
+ * Whenever discovery is used for a known credential, the credential the user
+ * picks must match the intended one.
  */
 async function webauthnGet(
   challenge: Uint8Array,
   rawIdB64?: string,
 ): Promise<WebauthnGetResult> {
+  // Targeted first, EXCEPT on desktop Edge with a known credential (discovery
+  // first there to avoid the double biometric).
+  const firstTargeted = rawIdB64 != null && !isDesktopEdge();
+
   let { result, debug } = await rawWebauthnGet(
     challenge,
-    rawIdB64,
-    rawIdB64 ? "targeted" : "discovery",
+    firstTargeted ? rawIdB64 : undefined,
+    firstTargeted ? "targeted" : rawIdB64 != null ? "edge-discovery" : "discovery",
   );
+
+  // If we ran discovery for a specific account, the user may have picked a
+  // different passkey — require a match.
+  if (!firstTargeted && rawIdB64 != null && rawIdToB64(result.rawId) !== rawIdB64) {
+    throw new Error(t("errWrongPasskey"));
+  }
   if (authenticatorUserVerified(new Uint8Array(result.authenticatorData))) {
     return result;
   }
 
-  // Targeted assertion came back user-presence-only. Retry via discovery so the
-  // platform actually verifies (fixes Edge + Microsoft Password Manager). Only
-  // meaningful for the targeted case; a discovery get that already returned
-  // UV=0 won't improve by repeating.
-  if (rawIdB64) {
+  // Targeted assertion came back user-presence-only on a non-Edge provider.
+  // Retry once via discovery, then require the credential to match.
+  if (firstTargeted) {
     ({ result, debug } = await rawWebauthnGet(challenge, undefined, "discovery-retry"));
     if (rawIdToB64(result.rawId) !== rawIdB64) {
       throw new Error(t("errWrongPasskey"));

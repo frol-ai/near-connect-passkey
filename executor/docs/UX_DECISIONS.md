@@ -57,6 +57,19 @@ Not cosmetic, but they shape the UX, so they belong here:
   security-key touch (presence only). This can turn away PIN-less security
   keys — an intentional trade of reach for safety.
 
+**Edge / Microsoft Password Manager quirk.** Edge's synced passkey provider
+(new in Edge 142) *performs the biometric* on a **targeted** `get`
+(`allowCredentials` set) but returns the assertion with **UV=0** — a provider
+bug. Only a **discovery** `get` (no `allowCredentials`, which shows the OS
+account chooser) sets UV correctly there. So `webauthnGet` (`index.ts`) goes
+**discovery-first on desktop Edge** (UA token `Edg/`) to get UV=1 in a single
+biometric; every other platform keeps the fast targeted path (direct biometric,
+no chooser) and only falls back to a discovery *retry* if some other provider
+also returns UV=0. When discovery is used for a known account, the credential
+the user picks must match (`errWrongPasskey`). This keeps strict UV without the
+double-biometric a naive targeted→discovery retry causes on Edge. If Edge fixes
+the provider, the UA special-case can be removed.
+
 These constraints surface to the user only as errors, which is why the error
 copy (below) must be actionable.
 
