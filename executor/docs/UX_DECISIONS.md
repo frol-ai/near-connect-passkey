@@ -87,16 +87,21 @@ that says what to DO. Guiding rules:
   setting to enable.
 - Raw `DOMException.name`/`.message` never reach the user.
 
-## 6. Fresh user-gesture before every dApp-initiated ceremony
+## 6. Confirm button vs. straight-to-ceremony
 
-Signing a transaction/message and confirming a returning sign-in each show a
-one-button `ui.promptConfirm` immediately before the WebAuthn call, with **no
-network await between the click and `navigator.credentials.get()`**. iOS/Safari
-require transient user activation for the ceremony; a button tap guarantees it
-and doubles as an explicit "you are about to sign" confirmation.
+Some dApp-initiated ceremonies show a one-button `ui.promptConfirm` first (sign
+a message, confirm a returning sign-in); the **transaction "Approve" flow does
+NOT** — it goes straight to the ceremony (`showProgress` biometric screen →
+`webauthnGet`), because the OS prompt (Face ID / Windows Hello / the account
+chooser) is itself the confirmation and the extra tap was pure friction.
 
-Do not move network calls (account existence, nonce fetch that hits RPC, etc.)
-between that tap and the ceremony — it breaks passkeys on iOS.
+Note the button was never a functional *user-activation* source: the sandbox
+runs `navigator.credentials.get()` in the **host window off a postMessage**
+(`SandboxedWallet/executor.ts`), not off the in-iframe click, so the click's
+transient activation never reaches the real ceremony. WebAuthn `get()` works in
+that host-window context without it. The button is therefore only an explicit
+"you're about to sign" affordance — keep it where a deliberate confirmation adds
+value, drop it (as on Approve) where the OS prompt already confirms.
 
 ## 7. Device-neutral wording
 

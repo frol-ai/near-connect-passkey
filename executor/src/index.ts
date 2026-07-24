@@ -488,9 +488,12 @@ async function signRequestMessage(
   request: RequestJson,
 ): Promise<{ msg: RequestMessageJson; proof: string }> {
   const msg = buildRequestMessage(active.accountId, await storage.nextNonce(), request);
-  // The button tap supplies the transient user activation iOS/Safari require,
-  // and the ceremony runs straight off the click with no network in between.
-  await ui.promptConfirm(t("approveTxTitle"), t("approveTxSubtitle"), t("approveBtn"));
+  // No confirm button: the ceremony's own OS prompt (Face ID / Hello / chooser)
+  // is the confirmation, so go straight to it. The button never supplied user
+  // activation to the ceremony anyway — the sandbox runs `credentials.get()` in
+  // the host window off a postMessage, not off the in-iframe click — so removing
+  // it changes no activation behaviour, just drops the extra tap.
+  await ui.showProgress(t("approveTxTitle"), t("approveTxSubtitle"), "biometric");
   try {
     const assertion = await webauthnGet(requestMessageHash(msg), active.rawId);
     return { msg, proof: buildProof(active.curve, assertion) };
