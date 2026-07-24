@@ -110,14 +110,29 @@ function randomBytes(length: number): number[] {
 }
 
 // ─── TEMPORARY UV diagnostics ────────────────────────────────────────────────
-// Capture the WebAuthn authenticatorData flags + browser so we can tell a
-// synced-provider (Microsoft Password Manager) UP-only assertion from a
-// genuine Windows Hello verification returning UV=0. authenticatorData layout:
-// rpIdHash(32) then flags(1) at index 32 — bit0 UP, bit2 UV, bit3 BE, bit4 BS.
-// Remove once the Windows/Edge UV issue is diagnosed.
-function uvDebug(authenticatorData: number[], path: string): string {
+// Capture the WebAuthn authenticatorData flags, the rpIdHash, and the
+// clientDataJSON origin/crossOrigin + browser, to tell WHY Windows/Edge returns
+// UV=0 for our ceremony while a direct same-origin get (passkeys-debugger.io)
+// returns UV=1 for the same platform/synced credential. Prime suspects: the
+// ceremony running cross-origin through the near-connect relay, or an rpId
+// mismatch. authenticatorData layout: rpIdHash(32) then flags(1) at index 32 —
+// bit0 UP, bit2 UV, bit3 BE, bit4 BS. Remove once diagnosed.
+function toHex(bytes: number[]): string {
+  return bytes.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function uvDebug(authenticatorData: number[], clientDataJSON: number[], path: string): string {
   const flags = authenticatorData[32] ?? 0;
   const bit = (m: number) => (flags & m ? 1 : 0);
+  let origin = "?";
+  let crossOrigin: unknown = "?";
+  try {
+    const cd = JSON.parse(new TextDecoder().decode(new Uint8Array(clientDataJSON)));
+    origin = cd.origin;
+    crossOrigin = cd.crossOrigin;
+  } catch {
+    // ignore — diagnostics only
+  }
   const info = {
     flags: `0x${flags.toString(16).padStart(2, "0")}`,
     UP: bit(0x01),
@@ -125,11 +140,18 @@ function uvDebug(authenticatorData: number[], path: string): string {
     BE: bit(0x08),
     BS: bit(0x10),
     path,
+    origin,
+    crossOrigin,
+    rpIdHash: toHex(authenticatorData.slice(0, 32)),
     ua: typeof navigator !== "undefined" ? navigator.userAgent : "",
   };
   // eslint-disable-next-line no-console
   console.warn("[passkey-uv-debug]", info);
-  return `flags=${info.flags} UP=${info.UP} UV=${info.UV} BE=${info.BE} BS=${info.BS} path=${path} ua=${info.ua}`;
+  return (
+    `flags=${info.flags} UP=${info.UP} UV=${info.UV} BE=${info.BE} BS=${info.BS} ` +
+    `path=${path} origin=${origin} crossOrigin=${String(crossOrigin)} ` +
+    `rpIdHash=${info.rpIdHash.slice(0, 16)}… ua=${info.ua}`
+  );
 }
 
 /** Best-effort flags from a create() attestation, for create-vs-get comparison. */
@@ -138,7 +160,7 @@ function createUvDebug(created: WebauthnCreateResult): void {
     const att = decodeCbor(new Uint8Array(created.attestationObject));
     const authData = att instanceof Map ? att.get("authData") : undefined;
     if (authData instanceof Uint8Array) {
-      uvDebug(Array.from(authData), "create");
+      uvDebug(Array.from(authData), created.clientDataJSON, "create");
     }
   } catch {
     // diagnostics only — never let this affect the create flow
@@ -211,7 +233,11 @@ async function webauthnGet(
   }
   // TEMPORARY: capture the assertion flags + browser (see UV-on-Windows/Edge
   // investigation). Appended to the error below so it can be read off the UI.
-  const debug = uvDebug(result.authenticatorData, rawIdB64 ? "targeted" : "discovery");
+  const debug = uvDebug(
+    result.authenticatorData,
+    result.clientDataJSON,
+    rawIdB64 ? "targeted" : "discovery",
+  );
   // Defense in depth: even with userVerification "required" requested, only
   // trust an assertion whose authenticator actually set the UV flag.
   if (!authenticatorUserVerified(new Uint8Array(result.authenticatorData))) {
