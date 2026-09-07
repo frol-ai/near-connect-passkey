@@ -2,7 +2,7 @@ import { sha3_256 } from "@noble/hashes/sha3.js";
 import { base58, base64 } from "@scure/base";
 
 import { BorshWriter, compareBytes, concatBytes } from "./borsh";
-import { AUTH_DOMAIN, CHAIN_ID, DEFAULT_TIMEOUT_SECS, REQUEST_DOMAIN } from "./constants";
+import { CHAIN_ID, DEFAULT_TIMEOUT_SECS, OFFCHAIN_DOMAIN, REQUEST_DOMAIN } from "./constants";
 import type { ConnectorAction } from "./types";
 
 // ─── RFC-3339 <-> nanoseconds ────────────────────────────────────────────────
@@ -49,32 +49,35 @@ export function nanosToRfc3339(nanos: bigint): string {
 
 export type CodeIdJson = { hash: string } | { account_id: string };
 
-export type AuthSignerBindingJson =
-  | { type: "signer_id"; signer_id: string }
-  | {
-      type: "code";
-      /**
-       * Canonical wallet-contract factory account ids this authorization may
-       * resolve under. MUST list at most one factory per signature curve (see
-       * the Rust `AuthSignerBinding::Code::allowed_factory_ids`).
-       */
-      allowed_factory_ids: string[];
-      signature_enabled: boolean;
-      subwallet_id: number;
-      timeout_secs: number;
-      extensions: string[];
-    };
-
-export interface AuthMessageJson {
+/**
+ * NEP-641 `OffchainMessage` (`defuse_nep641::OffchainMessage`), the message a
+ * wallet signs for `w_resolve_auth`. The contract checks `chain_id`,
+ * `signer_id == current_account_id()`, `path` (must equal the `path` argument
+ * of `w_resolve_auth`) and `timestamp <= block timestamp`, then verifies the
+ * signature over the canonical hash and authorizes `payload`.
+ */
+export interface OffchainMessageJson {
   chain_id: string;
-  signer: AuthSignerBindingJson;
-  purpose: string;
-  recipient: string;
+  signer_id: string;
+  /**
+   * Path to the top-level resolver ("bottom-top": direct parent first,
+   * top-level resolver last). Empty / absent = top-level authorization.
+   */
+  path?: string[];
+  /** RFC-3339, at signing time (slightly in the past) */
+  timestamp: string;
   payload: string;
-  /** RFC-3339 */
-  created_at: string;
-  timeout_secs: number;
 }
+
+/**
+ * `defuse_wallet::WalletAuthorization` — the JSON `authorization` blob passed
+ * to `w_resolve_auth(path, authorization)`. This executor only produces the
+ * `signature` variant; `extension` is for wallets acting through an enabled
+ * extension.
+ */
+export type WalletAuthorizationJson =
+  | { signature: { msg: OffchainMessageJson; proof: string } }
+  | { extension: { account_id: string; authorization: string; payload: string } };
 
 export type WalletOpJson =
   | { op: "set_signature_mode"; payload: { enable: boolean } }
@@ -122,6 +125,12 @@ export interface RequestJson {
 }
 
 export interface RequestMessageJson {
+  /**
+   * Currently unsupported by the contract (it panics when set). Present in the
+   * wire format (first borsh field; omitted from JSON when false) for forward
+   * compatibility with External Contract Calls.
+   */
+  pay_for_gas?: boolean;
   chain_id: string;
   signer_id: string;
   nonce: number;
@@ -143,38 +152,20 @@ function writeCodeId(w: BorshWriter, code: CodeIdJson): void {
   }
 }
 
-function writeAuthSignerBinding(w: BorshWriter, signer: AuthSignerBindingJson): void {
-  if (signer.type === "signer_id") {
-    w.writeU8(0).writeString(signer.signer_id);
-    return;
-  }
-  w.writeU8(1);
-  // Field order MUST match the Rust `AuthSignerBinding::Code`:
-  // allowed_factory_ids, signature_enabled, subwallet_id, timeout, extensions.
-  // BTreeSet<AccountId>: sorted Vec<String>.
-  w.writeVec([...signer.allowed_factory_ids].sort(), (id) => w.writeString(id));
-  w.writeBool(signer.signature_enabled);
-  w.writeU32(signer.subwallet_id);
-  w.writeU32(signer.timeout_secs);
-  w.writeVec([...signer.extensions].sort(), (ext) => w.writeString(ext));
-}
-
-export function serializeAuthMessage(msg: AuthMessageJson): Uint8Array {
+export function serializeOffchainMessage(msg: OffchainMessageJson): Uint8Array {
   const w = new BorshWriter();
   w.writeString(msg.chain_id);
-  writeAuthSignerBinding(w, msg.signer);
-  w.writeString(msg.purpose);
-  w.writeString(msg.recipient);
+  w.writeString(msg.signer_id);
+  w.writeVec(msg.path ?? [], (id) => w.writeString(id));
+  w.writeU64(rfc3339ToNanos(msg.timestamp));
   w.writeString(msg.payload);
-  w.writeU64(rfc3339ToNanos(msg.created_at));
-  w.writeU32(msg.timeout_secs);
   return w.toBytes();
 }
 
-/** `SHA3-256("NEAR_WALLET_CONTRACT_AUTH/V1" || borsh(msg))` — the WebAuthn challenge. */
-export function authMessageHash(msg: AuthMessageJson): Uint8Array {
+/** `SHA3-256("NEAR_NEP641_OFFCHAIN_MESSAGE/V1" || borsh(msg))` — the WebAuthn challenge. */
+export function offchainMessageHash(msg: OffchainMessageJson): Uint8Array {
   return sha3_256(
-    concatBytes(new TextEncoder().encode(AUTH_DOMAIN), serializeAuthMessage(msg)),
+    concatBytes(new TextEncoder().encode(OFFCHAIN_DOMAIN), serializeOffchainMessage(msg)),
   );
 }
 
@@ -242,6 +233,7 @@ function writeRequest(w: BorshWriter, request: RequestJson): void {
 
 export function serializeRequestMessage(msg: RequestMessageJson): Uint8Array {
   const w = new BorshWriter();
+  w.writeBool(msg.pay_for_gas ?? false);
   w.writeString(msg.chain_id);
   w.writeString(msg.signer_id);
   w.writeU32(msg.nonce);
@@ -261,30 +253,35 @@ export function requestMessageHash(msg: RequestMessageJson): Uint8Array {
 // ─── Canonical JSON wire re-serialization ────────────────────────────────────
 
 /**
- * Re-serialize an AuthMessage into the canonical serde wire form
- * (normalized RFC-3339 timestamp, sorted extensions).
+ * Re-serialize an OffchainMessage into the canonical serde wire form
+ * (normalized RFC-3339 timestamp, `path` omitted when empty).
  */
-export function authMessageToWireJson(msg: AuthMessageJson): AuthMessageJson {
-  const signer: AuthSignerBindingJson =
-    msg.signer.type === "signer_id"
-      ? { type: "signer_id", signer_id: msg.signer.signer_id }
-      : {
-          type: "code",
-          allowed_factory_ids: [...msg.signer.allowed_factory_ids].sort(),
-          signature_enabled: msg.signer.signature_enabled,
-          subwallet_id: msg.signer.subwallet_id,
-          timeout_secs: msg.signer.timeout_secs,
-          extensions: [...msg.signer.extensions].sort(),
-        };
-  return {
+export function offchainMessageToWireJson(msg: OffchainMessageJson): OffchainMessageJson {
+  const wire: OffchainMessageJson = {
     chain_id: msg.chain_id,
-    signer,
-    purpose: msg.purpose,
-    recipient: msg.recipient,
+    signer_id: msg.signer_id,
+    timestamp: nanosToRfc3339(rfc3339ToNanos(msg.timestamp)),
     payload: msg.payload,
+  };
+  if (msg.path && msg.path.length > 0) wire.path = [...msg.path];
+  return wire;
+}
+
+/**
+ * Re-serialize a RequestMessage into the canonical serde wire form
+ * (`pay_for_gas` omitted when false, normalized RFC-3339 timestamp).
+ */
+export function requestMessageToWireJson(msg: RequestMessageJson): RequestMessageJson {
+  const wire: RequestMessageJson = {
+    chain_id: msg.chain_id,
+    signer_id: msg.signer_id,
+    nonce: msg.nonce,
     created_at: nanosToRfc3339(rfc3339ToNanos(msg.created_at)),
     timeout_secs: msg.timeout_secs,
+    request: msg.request,
   };
+  if (msg.pay_for_gas) wire.pay_for_gas = true;
+  return wire;
 }
 
 // ─── Message building helpers ────────────────────────────────────────────────
@@ -301,6 +298,8 @@ export function buildRequestMessage(
   request: RequestJson,
 ): RequestMessageJson {
   return {
+    // Relayed only: the sponsor pays for gas (`pay_for_gas` is unsupported
+    // on-chain anyway and omitted from the JSON wire form when false).
     chain_id: CHAIN_ID,
     signer_id: signerId,
     nonce,

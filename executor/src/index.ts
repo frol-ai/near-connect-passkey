@@ -5,12 +5,7 @@ import { base64 } from "@scure/base";
 
 import { BorshWriter } from "./borsh";
 import { CHAIN_ID, DEFAULT_PASSKEY_LABEL, DEFAULT_RPC_URLS } from "./constants";
-import {
-  DEFAULT_WALLET_CONFIG,
-  buildAuthMessageCodeBinding,
-  buildAuthMessageSignerId,
-  buildAuthorizationBlob,
-} from "./authEnvelope";
+import { buildAuthorizationBlob, buildOffchainMessage } from "./authEnvelope";
 import { registryGet, registryRegister } from "./registry";
 import { buildSignedDelegateAction, relayExecuteSigned, relayStateInit } from "./relayer";
 import type { PasskeyPublicKey } from "./stateInit";
@@ -59,8 +54,7 @@ import {
 } from "./webauthn";
 import { friendlyWebauthnError } from "./errors";
 import { t } from "./i18n";
-import type { AuthMessageJson } from "./walletContract";
-import { authMessageHash } from "./walletContract";
+import { offchainMessageHash } from "./walletContract";
 
 // ─── Environment ─────────────────────────────────────────────────────────────
 
@@ -527,6 +521,30 @@ async function ensureAccountOnChain(active: ActiveCredential): Promise<void> {
   );
 }
 
+/**
+ * Sign the NEP-641 OffchainMessage for `active`'s account and make sure the
+ * account exists on-chain (view calls — `w_resolve_auth` — cannot run against
+ * a not-yet-initialized deterministic account).
+ */
+async function signOffchainAuthorization(
+  active: ActiveCredential,
+  params: ResolveAuthParams,
+  progressSubtitle: "signingInFinalizeSubtitle" | "signingInSetupSubtitle",
+): Promise<ResolveAuthResponse> {
+  const message = buildOffchainMessage({
+    signerId: active.accountId,
+    payload: params.payload,
+    path: params.path,
+  });
+  const assertion = await webauthnGet(offchainMessageHash(message), active.rawId);
+  await ui.showProgress(t("signingInTitle"), t(progressSubtitle));
+  await ensureAccountOnChain(active);
+  return {
+    accountId: active.accountId,
+    authorization: buildAuthorizationBlob(message, buildProof(active.curve, assertion)),
+  };
+}
+
 // ─── NEP-413 ────────────────────────────────────────────────────────────────
 
 const NEP413_TAG = 2 ** 31 + 413;
@@ -676,24 +694,19 @@ const wallet = {
 
   async resolveAuth(params: ResolveAuthParams): Promise<ResolveAuthResponse> {
     assertMainnet(params.network);
+    if (typeof params.payload !== "string") {
+      throw new Error("resolveAuth: `payload` (string) is required");
+    }
+    if (params.path !== undefined && !params.path.every((id) => typeof id === "string")) {
+      throw new Error("resolveAuth: `path` must be an array of account ids");
+    }
 
     const signedIn = await storage.getActiveCredential();
-
     if (signedIn) {
-      // Account id is known — bind to it exactly (SignerId), no sibling-account
-      // ambiguity.
-      const message = buildAuthMessageSignerId({ ...params, signerId: signedIn.accountId });
-      const challenge = authMessageHash(message);
+      // Fresh user activation for the ceremony (dApp-initiated sign-in).
+      await ui.promptConfirm(t("confirmSignInTitle"), t("confirmSignInSubtitle"), t("confirmSignInBtn"));
       try {
-        // Fresh user activation for the ceremony (dApp-initiated sign-in).
-        await ui.promptConfirm(t("confirmSignInTitle"), t("confirmSignInSubtitle"), t("confirmSignInBtn"));
-        const assertion = await webauthnGet(challenge, signedIn.rawId);
-        await ui.showProgress(t("signingInTitle"), t("signingInFinalizeSubtitle"));
-        await ensureAccountOnChain(signedIn);
-        return {
-          accountId: signedIn.accountId,
-          authorization: buildAuthorizationBlob(message, buildProof(signedIn.curve, assertion)),
-        };
+        return await signOffchainAuthorization(signedIn, params, "signingInFinalizeSubtitle");
       } finally {
         await ui.closeUi();
       }
@@ -706,61 +719,23 @@ const wallet = {
     const choice = await ui.promptSignInChoice();
 
     try {
-      if (choice === "create") {
-        const active = await createNewPasskey();
-        // Account id is now known — bind to it exactly (SignerId).
-        const message = buildAuthMessageSignerId({ ...params, signerId: active.accountId });
-        const challenge = authMessageHash(message);
-        // Fresh activation after the (network-bound) registration step.
-        await ui.promptConfirm(t("confirmSignInTitle"), t("confirmSignInAgainSubtitle"), t("confirmSignInBtn"));
-        const assertion = await webauthnGet(challenge, active.rawId);
-        await ui.showProgress(t("signingInTitle"), t("signingInSetupSubtitle"));
-        await ensureAccountOnChain(active);
-        return {
-          accountId: active.accountId,
-          authorization: buildAuthorizationBlob(message, buildProof(active.curve, assertion)),
-        };
-      }
+      // The NEP-641 OffchainMessage is bound to the exact `signer_id`, so the
+      // account id MUST be known before the signing ceremony:
+      //  - "create": derived from the freshly created credential's public key;
+      //  - "existing": a discovery get() (random challenge) reveals the
+      //    credential, which the registry / local cache maps to its key.
+      const active = choice === "create" ? await createNewPasskey() : await useExistingPasskey();
 
-      // Existing passkey, cold discovery: the account id is not known until the
-      // ceremony reveals the credential, so the challenge must be built before
-      // it. Use the curve-independent Code binding, which pins the accepting
-      // set to the canonical factories (one per curve) via allowed_factory_ids.
-      const message = buildAuthMessageCodeBinding({ ...params, config: DEFAULT_WALLET_CONFIG });
-      const challenge = authMessageHash(message);
-      await ui.showProgress(t("usePasskeyTitle"), t("usePasskeySubtitle"), "biometric");
-      const assertion = await webauthnGet(challenge);
-      await ui.showProgress(t("lookingUpTitle"), t("lookingUpSubtitle"));
-      let resolved: ResolvedCredential;
+      // Fresh activation after the (network-bound) registration / lookup step.
+      await ui.promptConfirm(t("confirmSignInTitle"), t("confirmSignInAgainSubtitle"), t("confirmSignInBtn"));
       try {
-        resolved = await resolveCredential(assertion);
-      } catch (e) {
-        await ui.showErrorDialog(
-          t("passkeyNotRegisteredTitle"),
-          e instanceof Error ? e.message : String(e),
-        );
-        throw e;
-      }
-
-      const active = toActiveCredential(resolved);
-      await storage.setActiveCredential(active);
-      await ui.showProgress(t("signingInTitle"), t("signingInSetupSubtitle"));
-      try {
-        await ensureAccountOnChain(active);
+        return await signOffchainAuthorization(active, params, "signingInSetupSubtitle");
       } catch (e) {
         // Roll back only freshly-established local state (verified `passkey:known`
         // write-through stays — it is true regardless of relay hiccups).
         await storage.clearActiveCredential();
         throw e;
       }
-
-      return {
-        accountId: resolved.accountId,
-        authorization: buildAuthorizationBlob(
-          message,
-          buildProof(resolved.publicKey.curve, assertion),
-        ),
-      };
     } finally {
       await ui.closeUi();
     }

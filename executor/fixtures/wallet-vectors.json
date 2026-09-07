@@ -1,0 +1,223 @@
+{
+  "comment": "Known-answer vectors generated from near/intents contracts/wallet (git rev 32a7836f, the code published at the mainnet global-contract ids in src/constants.ts). offchain: NEP-641 OffchainMessage JSON wire form, hash = SHA3-256('NEAR_NEP641_OFFCHAIN_MESSAGE/V1' || borsh(msg)) hex, and the WalletAuthorization::Signature blob with a placeholder proof. request: RequestMessage JSON wire form, borsh hex and hash = SHA3-256('NEAR_WALLET_CONTRACT/V1' || borsh(msg)) hex. state: default State / StateInit borsh and derived NEP-616 account ids for the deployed code ids.",
+  "offchain": [
+    {
+      "authorization": "{\"signature\":{\"msg\":{\"chain_id\":\"mainnet\",\"signer_id\":\"extension.near\",\"path\":[\"wallet.near\"],\"timestamp\":\"2026-08-05T07:28:00.123456789Z\",\"payload\":\"Hello, Near!\"},\"proof\":\"<proof>\"}}",
+      "hash": "ac9fc5df2a1da51c4e0446185c8e5b58b65f37d12c544d144fa8f026239962ae",
+      "message": {
+        "chain_id": "mainnet",
+        "path": [
+          "wallet.near"
+        ],
+        "payload": "Hello, Near!",
+        "signer_id": "extension.near",
+        "timestamp": "2026-08-05T07:28:00.123456789Z"
+      },
+      "name": "doc_test_extension_path"
+    },
+    {
+      "authorization": "{\"signature\":{\"msg\":{\"chain_id\":\"mainnet\",\"signer_id\":\"0se5eba21e8f191e1880e453794bc551dfa50a3419\",\"timestamp\":\"2026-07-16T12:34:56Z\",\"payload\":\"{\\n  \\\"domain\\\": \\\"trezu.app\\\",\\n  \\\"action\\\": \\\"Login\\\",\\n  \\\"msg\\\": \\\"Login to trezu.app at 2026-07-16T12:34:56Z\\\"\\n}\"},\"proof\":\"<proof>\"}}",
+      "hash": "63bfefedf38c60bd2f61e1e6326dd2e2a89b2d48d003b5997e1d3ddb4bf17a34",
+      "message": {
+        "chain_id": "mainnet",
+        "payload": "{\n  \"domain\": \"trezu.app\",\n  \"action\": \"Login\",\n  \"msg\": \"Login to trezu.app at 2026-07-16T12:34:56Z\"\n}",
+        "signer_id": "0se5eba21e8f191e1880e453794bc551dfa50a3419",
+        "timestamp": "2026-07-16T12:34:56Z"
+      },
+      "name": "top_level_passkey_login"
+    },
+    {
+      "authorization": "{\"signature\":{\"msg\":{\"chain_id\":\"mainnet\",\"signer_id\":\"0s0000000000000000000000000000000000000000\",\"timestamp\":\"1970-01-01T00:00:00Z\",\"payload\":\"\"},\"proof\":\"<proof>\"}}",
+      "hash": "36a2583abee5b5d6df35ad2e458da18227a5b60c8150b48a34c022ba5e484c27",
+      "message": {
+        "chain_id": "mainnet",
+        "payload": "",
+        "signer_id": "0s0000000000000000000000000000000000000000",
+        "timestamp": "1970-01-01T00:00:00Z"
+      },
+      "name": "top_level_epoch_empty_payload"
+    },
+    {
+      "authorization": "{\"signature\":{\"msg\":{\"chain_id\":\"mainnet\",\"signer_id\":\"0se5eba21e8f191e1880e453794bc551dfa50a3419\",\"path\":[\"wallet.near\",\"v1.signer\"],\"timestamp\":\"2026-07-16T12:34:56.789Z\",\"payload\":\"withdraw 100 USDC to bob.near\"},\"proof\":\"<proof>\"}}",
+      "hash": "60bdd186692fb06896ffadc8afa4f8bdc773e8d6c724c17c19843d070225d145",
+      "message": {
+        "chain_id": "mainnet",
+        "path": [
+          "wallet.near",
+          "v1.signer"
+        ],
+        "payload": "withdraw 100 USDC to bob.near",
+        "signer_id": "0se5eba21e8f191e1880e453794bc551dfa50a3419",
+        "timestamp": "2026-07-16T12:34:56.789Z"
+      },
+      "name": "two_hop_path_millis"
+    }
+  ],
+  "request": [
+    {
+      "borsh": "00070000006d61696e6e65742a000000307330303030303030303030303030303030303030303030303030303030303030303030303030303030000000000000000000000000100e00000000000000000000",
+      "hash": "a8df85c0e8793716904fd57e9bef7d83b12773508bd3c9fca554afbfb108d4b5",
+      "message": {
+        "chain_id": "mainnet",
+        "created_at": "1970-01-01T00:00:00Z",
+        "nonce": 0,
+        "request": {},
+        "signer_id": "0s0000000000000000000000000000000000000000",
+        "timeout_secs": 3600
+      },
+      "name": "empty_request_epoch"
+    },
+    {
+      "borsh": "00070000006d61696e6e65742a00000030736535656261323165386631393165313838306534353337393462633535316466613530613334313940bf9aa9003ac68698fdbf18100e000000000000010000000900000076312e7369676e6572000100000002040000007369676e7f0000007b2272657175657374223a7b227061796c6f61645f7632223a7b224563647361223a2230303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030227d2c22646f6d61696e5f6964223a302c2270617468223a22227d7d0100000000000000000000000000000000000000000000000100000000000000",
+      "hash": "7c8560b51380551676a54dac49dcc1e009af3020556cde8e1e2172782ffd6775",
+      "message": {
+        "chain_id": "mainnet",
+        "created_at": "2026-07-07T11:13:29Z",
+        "nonce": 2845491008,
+        "request": {
+          "external": [
+            {
+              "actions": [
+                {
+                  "action": "function_call",
+                  "payload": {
+                    "args": "eyJyZXF1ZXN0Ijp7InBheWxvYWRfdjIiOnsiRWNkc2EiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwIn0sImRvbWFpbl9pZCI6MCwicGF0aCI6IiJ9fQ==",
+                    "deposit": "1",
+                    "function_name": "sign"
+                  }
+                }
+              ],
+              "receiver_id": "v1.signer"
+            }
+          ]
+        },
+        "signer_id": "0se5eba21e8f191e1880e453794bc551dfa50a3419",
+        "timeout_secs": 3600
+      },
+      "name": "mainnet_function_call"
+    },
+    {
+      "borsh": "00070000006d61696e6e65742a000000307365356562613231653866313931653138383065343533373934626335353164666135306133343139ffffffff1549e1f15f57bc182c01000003000000010e0000003266612e7472657a752e6e6561720000020e0000006f6c642e7472657a752e6e656172020000000d00000072656365697665722e6e656172010b000000726566756e642e6e656172030000000b00010b000000676c6f62616c2e6e656172010000000000000003000000010203000000a1edccce1bc2d30000000000000203000000666f6f040000001234567800000042db999d3784a701000000000000a014e332260000020000000000000003000000e3c8666c53467b02000000000008000000626f622e6e656172000100000002040000006e6f6f70000000000000000000000000000000000000000000000000000000000100000000000000",
+      "hash": "453a59ef42da2165e990642b5a3b3598446d106982f9f938a3ff08cf8b0c1c53",
+      "message": {
+        "chain_id": "mainnet",
+        "created_at": "2026-06-25T13:53:42.123456789Z",
+        "nonce": 4294967295,
+        "request": {
+          "external": [
+            {
+              "actions": [
+                {
+                  "action": "deterministic_state_init",
+                  "payload": {
+                    "deposit": "1000000000000000000000000",
+                    "state_init": {
+                      "V1": {
+                        "code": {
+                          "account_id": "global.near"
+                        },
+                        "data": {
+                          "": "AQID"
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "action": "function_call",
+                  "payload": {
+                    "args": "EjRWeA==",
+                    "deposit": "2000000000000000000000000",
+                    "function_name": "foo",
+                    "gas": "42000000000000",
+                    "gas_weight": "2"
+                  }
+                },
+                {
+                  "action": "transfer",
+                  "payload": {
+                    "amount": "3000000000000000000000000"
+                  }
+                }
+              ],
+              "receiver_id": "receiver.near",
+              "refund_to": "refund.near"
+            },
+            {
+              "actions": [
+                {
+                  "action": "function_call",
+                  "payload": {
+                    "function_name": "noop"
+                  }
+                }
+              ],
+              "receiver_id": "bob.near"
+            }
+          ],
+          "internal": [
+            {
+              "op": "add_extension",
+              "payload": {
+                "account_id": "2fa.trezu.near"
+              }
+            },
+            {
+              "op": "set_signature_mode",
+              "payload": {
+                "enable": false
+              }
+            },
+            {
+              "op": "remove_extension",
+              "payload": {
+                "account_id": "old.trezu.near"
+              }
+            }
+          ]
+        },
+        "signer_id": "0se5eba21e8f191e1880e453794bc551dfa50a3419",
+        "timeout_secs": 300
+      },
+      "name": "internal_ops_and_state_init"
+    }
+  ],
+  "state": {
+    "ed25519": {
+      "account_id": "0s86414e3c4592700ab237a6a70cdb5bba98179b3c",
+      "public_key": "ed25519:3APZt7ozMtE2uLgm6RQjfR9r7YJq2QLTtPLkqnWiAGxQ",
+      "state_borsh": "0100000000201f1e1d1c1b1a191817161514131211100f0e0d0c0b0a090807060504030201100e00000000000000000000000000000000000000000000",
+      "state_init_borsh": "00012a00000030736137656436616365373966306664393733313363343635666437326137373439393030343835303101000000000000003d0000000100000000201f1e1d1c1b1a191817161514131211100f0e0d0c0b0a090807060504030201100e00000000000000000000000000000000000000000000",
+      "state_init_json": {
+        "V1": {
+          "code": {
+            "account_id": "0sa7ed6ace79f0fd97313c465fd72a774990048501"
+          },
+          "data": {
+            "": "AQAAAAAgHx4dHBsaGRgXFhUUExIREA8ODQwLCgkIBwYFBAMCARAOAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+          }
+        }
+      }
+    },
+    "p256": {
+      "account_id": "0seadc7532489fa16ec5f9e66e204689155c57acde",
+      "public_key": "p256:bXZvqQ4Yk43yqp8pkniBKuvNSgvTh7TnXBZYobpbXdBV",
+      "state_borsh": "0100000000020102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20100e00000000000000000000000000000000000000000000",
+      "state_init_borsh": "00012a00000030736166333433626532323633343163306563613764626136643062323964343962646666336164303301000000000000003e0000000100000000020102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20100e00000000000000000000000000000000000000000000",
+      "state_init_json": {
+        "V1": {
+          "code": {
+            "account_id": "0saf343be226341c0eca7dba6d0b29d49bdff3ad03"
+          },
+          "data": {
+            "": "AQAAAAACAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAQDgAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+          }
+        }
+      }
+    },
+    "p256_real": {
+      "account_id": "0s07d78ed1574c6a11174cafecece29013176c865d",
+      "public_key": "p256:pSDR8k7FuUY5TMcP6xmQo3UxedPGLGmVFeUJrjibwWFZ"
+    }
+  }
+}

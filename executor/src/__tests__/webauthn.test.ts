@@ -1,6 +1,6 @@
 import { ed25519 } from "@noble/curves/ed25519.js";
 import { p256 } from "@noble/curves/nist.js";
-import { base58 } from "@scure/base";
+import { base58, base64urlnopad, hex } from "@scure/base";
 import { describe, expect, it } from "vitest";
 
 import { concatBytes } from "../borsh";
@@ -12,9 +12,11 @@ import {
   extractCosePublicKey,
   extractCredentialPublicKey,
   extractSpkiPublicKey,
+  buildProof,
   signatureToString,
   verifyAssertion,
 } from "../webauthn";
+import { requestMessageHash } from "../walletContract";
 import { friendlyWebauthnError } from "../errors";
 
 // ─── Minimal CBOR encoder (tests only) ───────────────────────────────────────
@@ -255,6 +257,54 @@ describe("local assertion verification", () => {
     const { secretKey } = p256.keygen();
     const publicKey = p256.Point.fromBytes(p256.getPublicKey(secretKey)).toBytes(true);
     expect(verifyAssertion({ curve: "p256", bytes: publicKey }, assertion)).toBe(false);
+  });
+});
+
+describe("real mainnet P-256 passkey proof (webauthn/src/p256.rs verify_ok)", () => {
+  // Public key, RequestMessage and the on-chain-accepted proof from the
+  // wallet crate's `verify_ok` test: the challenge inside clientDataJSON is
+  // base64url(msg.hash()) and the proof signature is the low-S raw `r||s`.
+  const publicKey = hex.decode(
+    "02c0cad83d84b6bf228366971ddcb1738b9af862c64446a9feea85964743a5b390",
+  );
+  const msgJson =
+    '{"nonce":2845491008,"request":{"external":[{"actions":[{"action":"function_call","payload":{"args":"eyJyZXF1ZXN0Ijp7InBheWxvYWRfdjIiOnsiRWNkc2EiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwIn0sImRvbWFpbl9pZCI6MCwicGF0aCI6IiJ9fQ==","deposit":"1","function_name":"sign"}}],"receiver_id":"v1.signer"}]},"chain_id":"mainnet","signer_id":"0se5eba21e8f191e1880e453794bc551dfa50a3419","created_at":"2026-07-07T11:13:29Z","timeout_secs":3600}';
+  const proof = {
+    authenticator_data: "SZYN5YgOjGh0NBcPZHZgW4_krrmihjLHmVzzuoMdl2MdAAAAAA==",
+    client_data_json:
+      '{"type":"webauthn.get","challenge":"fIVgtROAVRZ2pU2sSdzB4AmvMCBVbN6OHiFyeC_9Z3U","origin":"http://localhost:5173","crossOrigin":false}',
+    signature: "p256:2S9WKwvKY7zgLaC9ihYDMQmbGtCvqqYy6RvvpgqRs7VXBR3GKXke4LKLNKyvtWRRB3dmU3awuCh2EYY7Sfk34qmh",
+  };
+  // The Rust vector pads its base64url; strip for the unpadded decoder.
+  const authenticatorData = base64urlnopad.decode(proof.authenticator_data.replace(/=+$/, ""));
+  const clientDataJSON = new TextEncoder().encode(proof.client_data_json);
+  const rawSig = base58.decode(proof.signature.slice("p256:".length));
+  // Browsers hand out DER; rebuild it from the raw vector.
+  const der = p256.Signature.fromBytes(rawSig, "compact").toBytes("der");
+  const assertion = {
+    rawId: [] as number[],
+    signature: Array.from(der),
+    authenticatorData: Array.from(authenticatorData),
+    clientDataJSON: Array.from(clientDataJSON),
+  };
+
+  it("challenge is base64url(RequestMessage hash)", () => {
+    const hash = requestMessageHash(JSON.parse(msgJson));
+    const challenge = (JSON.parse(proof.client_data_json) as { challenge: string }).challenge;
+    expect(base64urlnopad.encode(hash)).toBe(challenge);
+  });
+
+  it("verifies locally against the credential key", () => {
+    expect(verifyAssertion({ curve: "p256", bytes: publicKey }, assertion)).toBe(true);
+  });
+
+  it("buildProof reproduces the on-chain proof", () => {
+    const built = JSON.parse(buildProof("p256", assertion)) as typeof proof;
+    // Same bytes; this executor emits the unpadded form the contract declares.
+    expect(built.authenticator_data).toBe(proof.authenticator_data.replace(/=+$/, ""));
+    expect(base64urlnopad.decode(built.authenticator_data)).toEqual(authenticatorData);
+    expect(built.client_data_json).toBe(proof.client_data_json);
+    expect(built.signature).toBe(proof.signature);
   });
 });
 
