@@ -1,21 +1,22 @@
 /**
- * Global contracts (NEP-591, deployed by account id) running passkey
- * wallets — one per WebAuthn credential curve, since each wallet-contract
- * variant embeds a curve-specific verifier and state layout.
+ * Wallet-contract code (NEP-591 global contracts, referenced by account id)
+ * running passkey wallets — one per WebAuthn credential curve, since each
+ * wallet-contract variant embeds a curve-specific verifier and state layout.
+ *
+ * Both are `near/intents` `contracts/wallet/signatures/webauthn/{p256,ed25519}`
+ * (git rev `32a7836f`), published through the Global Deployer on deterministic
+ * (NEP-616) accounts, so the code stays upgradable by the deployer's owner
+ * while the ids — and every wallet account id derived from them — stay fixed.
+ *
+ * The curve mapping is VERIFIED against the on-chain contract metadata
+ * (`standards[].standard`: `wallet-webauthn-p256` / `wallet-webauthn-ed25519`),
+ * see `npm run verify-contracts`. A swapped mapping would derive account ids
+ * whose contract cannot even deserialize its own state.
  */
-export const FACTORY_IDS = {
-  p256: "p256-passkey-wallet-contract.trezu.near",
-  ed25519: "ed25519-passkey-wallet-contract.trezu.near",
+export const WALLET_CODE_IDS = {
+  p256: "0saf343be226341c0eca7dba6d0b29d49bdff3ad03",
+  ed25519: "0sa7ed6ace79f0fd97313c465fd72a774990048501",
 } as const;
-
-/**
- * The canonical wallet-contract factory account ids committed into NEP-641
- * `Code`-binding envelopes as `allowed_factory_ids`. This list MUST contain at
- * most ONE factory per signature curve — otherwise a single signed
- * authorization could resolve against two different accounts of the same key
- * (cross-account replay). Here it is exactly one per curve (p256, ed25519).
- */
-export const ALLOWED_FACTORY_IDS: readonly string[] = [FACTORY_IDS.p256, FACTORY_IDS.ed25519];
 
 /** Open on-chain registry mapping WebAuthn rawId -> public key candidates. */
 export const REGISTRY_ID = "passkeys-registry.near";
@@ -52,8 +53,8 @@ export const DEFAULT_TIMEOUT_SECS = 3600;
  */
 export const DEFAULT_PASSKEY_LABEL = "Trezu.org Account";
 
-/** Domain prefix for NEP-641 AuthMessage hashing (SHA3-256). */
-export const AUTH_DOMAIN = "NEAR_WALLET_CONTRACT_AUTH/V1";
+/** Domain prefix for NEP-641 OffchainMessage hashing (SHA3-256). */
+export const OFFCHAIN_DOMAIN = "NEAR_NEP641_OFFCHAIN_MESSAGE/V1";
 
 /** Domain prefix for RequestMessage hashing (SHA3-256). */
 export const REQUEST_DOMAIN = "NEAR_WALLET_CONTRACT/V1";

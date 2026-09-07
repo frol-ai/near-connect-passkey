@@ -45,6 +45,19 @@ the default label.
 Decision gate: `Object.keys(await storage.getKnownCredentials()).length === 0`
 → first account (no prompt) vs additional (prompt).
 
+## 3b. Cold sign-in via `resolveAuth` = two device confirmations
+
+When a dApp asks for a NEP-641 authorization (`resolveAuth`) and no passkey is
+active locally, the "existing passkey" path runs **two** ceremonies: a
+discovery `get()` (random challenge) that reveals which credential — and so
+which wallet account — the user picked, then a targeted `get()` signing the
+`OffchainMessage` for that account. The wallet contract verifies
+`signer_id == current_account_id()` on the signed message, so the account id
+has to be known *before* the signing ceremony. The screens between the two
+make it explicit
+(`lookingUp…` → `confirmSignInAgainSubtitle`). Returning users (active
+passkey) and fresh sign-ups still confirm once for the authorization itself.
+
 ## 4. Resident keys + user verification are non-negotiable
 
 Not cosmetic, but they shape the UX, so they belong here:
@@ -55,7 +68,9 @@ Not cosmetic, but they shape the UX, so they belong here:
 - **User verification required** on every ceremony, and the UV flag is
   re-checked on each assertion. A wallet must never sign on a bare
   security-key touch (presence only). This can turn away PIN-less security
-  keys — an intentional trade of reach for safety.
+  keys — an intentional trade of reach for safety. (The deployed wallet
+  contracts are built with `IgnoreUserVerification` for U2F compatibility;
+  this stricter check is an executor-side policy on top.)
 
 **Edge / Microsoft Password Manager quirk.** Edge's synced passkey provider
 (new in Edge 142) *performs the biometric* on a **targeted** `get`

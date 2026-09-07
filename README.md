@@ -6,17 +6,27 @@ executor for **Passkeys** (WebAuthn), plus the on-chain
 
 A passkey-controlled NEAR account is a deterministic
 ([NEP-616](https://github.com/near/NEPs/blob/master/neps/nep-0616.md))
-`0s…` account running the WebAuthn wallet contract
-([NEP-591](https://github.com/near/NEPs/blob/master/neps/nep-0591.md) global
-contract deployed by account id — one variant per credential curve:
-`p256-passkey-wallet-contract.trezu.near` for ES256 and
-`ed25519-passkey-wallet-contract.trezu.near` for EdDSA, since each variant
-embeds a curve-specific verifier and state layout).
+`0s…` account running the
+[`near/intents` wallet contract](https://github.com/near/intents/tree/main/contracts/wallet)
+WebAuthn variant, referenced as a
+[NEP-591](https://github.com/near/NEPs/blob/master/neps/nep-0591.md) global
+contract by account id — one per credential curve, since each variant embeds
+a curve-specific verifier and state layout:
+
+| Curve | Global contract id | NEP-330 standard |
+|---|---|---|
+| ES256 / P-256 | `0saf343be226341c0eca7dba6d0b29d49bdff3ad03` | `wallet-webauthn-p256` |
+| EdDSA / Ed25519 | `0sa7ed6ace79f0fd97313c465fd72a774990048501` | `wallet-webauthn-ed25519` |
+
+(both built from `near/intents@32a7836f` and published via the intents Global
+Deployer; `cd executor && npm run verify-contracts` re-checks the mapping
+against the on-chain metadata).
 The passkey's public key **is** the identity: `account_id = f(code, initial state)`.
 Authentication uses
 [NEP-641](https://github.com/near/NEPs/blob/master/neps/nep-0641.md)
-`w_resolve_auth` with a code-binding envelope, so re-login from a new device
-takes a **single** `credentials.get()` ceremony.
+`w_resolve_auth(path, authorization)` with an `OffchainMessage` bound to the
+wallet account id; re-login from a new device therefore takes a discovery
+`credentials.get()` to identify the passkey followed by the signing ceremony.
 
 ## Repository layout
 

@@ -10,7 +10,7 @@ import {
 } from "../walletContract";
 
 describe("RequestMessage known-answer vectors (contracts/wallet/src/message.rs)", () => {
-  it("empty request (doc-test vector)", () => {
+  it("empty request (doc-test vector; pay_for_gas=false leads the borsh)", () => {
     const msg: RequestMessageJson = {
       chain_id: "mainnet",
       signer_id: "0s0000000000000000000000000000000000000000",
@@ -19,16 +19,17 @@ describe("RequestMessage known-answer vectors (contracts/wallet/src/message.rs)"
       timeout_secs: 3600,
       request: {},
     };
+    expect(serializeRequestMessage(msg)[0]).toBe(0); // pay_for_gas
     expect(hex.encode(requestMessageHash(msg))).toBe(
-      "e42ac706e27f0157624ee49fc4693c9cc9666c5e51358b7d57f79ee16005ded7",
+      "a8df85c0e8793716904fd57e9bef7d83b12773508bd3c9fca554afbfb108d4b5",
     );
   });
 
-  it("mainnet function_call vector (tx 6vytw7NgAiPkJ3KYAyt18es4mDnwZ8knjpB7LHVJejAL)", () => {
+  it("mainnet function_call vector (message.rs json_hash case)", () => {
     const json = `{"nonce":2845491008,"request":{"external":[{"actions":[{"action":"function_call","payload":{"args":"eyJyZXF1ZXN0Ijp7InBheWxvYWRfdjIiOnsiRWNkc2EiOiIwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwIn0sImRvbWFpbl9pZCI6MCwicGF0aCI6IiJ9fQ==","deposit":"1","function_name":"sign"}}],"receiver_id":"v1.signer"}]},"chain_id":"mainnet","signer_id":"0se5eba21e8f191e1880e453794bc551dfa50a3419","created_at":"2026-07-07T11:13:29Z","timeout_secs":3600}`;
     const msg = JSON.parse(json) as RequestMessageJson;
     expect(hex.encode(requestMessageHash(msg))).toBe(
-      "06f269191431372337a0c606a15822e349bd0d5ec317704f97bef1a4ed6f5e1d",
+      "7c8560b51380551676a54dac49dcc1e009af3020556cde8e1e2172782ffd6775",
     );
   });
 

@@ -64,13 +64,25 @@ export interface SignDelegateActionsResponse {
   signedDelegateActions: string[];
 }
 
-export type ResolveAuthPurpose = "PROVE_OWNERSHIP" | "APPROVE_OFFCHAIN_ACTION";
-
+/**
+ * NEP-641 offchain authorization request (`resolveAuth` feature).
+ *
+ * The signed message is the NEP-641 `OffchainMessage { chain_id, signer_id,
+ * path, timestamp, payload }`: dApps put their domain / action / human-readable
+ * message into `payload` — the recommended top-level structure is the NEP-641
+ * `JsonPayload` (`{"domain": "...", "action": "...", "msg": "..."}`) — and
+ * verify it offchain via `w_resolve_auth(path, authorization)` on the returned
+ * account.
+ */
 export interface ResolveAuthParams {
   network?: Network;
-  purpose: ResolveAuthPurpose;
-  recipient: string;
+  /** The payload to authorize; returned verbatim by `w_resolve_auth`. */
   payload: string;
+  /**
+   * Path to the top-level resolver (direct parent first, top-level last).
+   * Omit for a plain top-level authorization signed directly for the dApp.
+   */
+  path?: string[];
 }
 
 export interface ResolveAuthResponse {
